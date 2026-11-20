@@ -1,7 +1,7 @@
 import { createMcpExpressApp, requireBearerAuth, getOAuthProtectedResourceMetadataUrl } from "@modelcontextprotocol/express";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpHandler } from "@modelcontextprotocol/server";
-import type { Request, Response, NextFunction } from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import { env, baseUrl, mcpUrl } from "./config.js";
 import { prisma } from "./db.js";
 import { createOAuthRouter, verifyAccessToken } from "./oauth.js";
@@ -11,7 +11,7 @@ import { assertSafeSiteUrl } from "./site-url.js";
 
 const hostname = baseUrl.hostname;
 const app = createMcpExpressApp({ host: "0.0.0.0", allowedHosts: [hostname] });
-app.use((await import("express")).default.urlencoded({ extended: false, limit: "32kb" }));
+app.use(express.urlencoded({ extended: false, limit: "32kb" }));
 app.use(createOAuthRouter());
 
 app.get("/health", (_req, res) => {
