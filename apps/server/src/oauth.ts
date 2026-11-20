@@ -181,8 +181,8 @@ export function createOAuthRouter(): Router {
         data: {
           userId: user.id,
           clientId: validated.client.clientId,
-          redirectUri: params.redirect_uri,
-          codeChallenge: params.code_challenge,
+          redirectUri: params.redirect_uri!,
+          codeChallenge: params.code_challenge!,
           state: params.state ?? null,
           scope: validated.scope,
           resource: validated.resource,
