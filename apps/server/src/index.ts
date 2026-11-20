@@ -129,7 +129,7 @@ app.post("/api/v1/sites/unpair", async (req, res) => {
   }
   await prisma.site.update({
     where: { id: site.id },
-    data: { disconnectedAt: new Date(), tokenHash: sha256(randomToken(48)) }
+    data: { disconnectedAt: new Date(), tokenHash: sha256(randomToken(48)), tokenCiphertext: "" }
   });
   await prisma.auditLog.create({
     data: { userId: site.ownerId, siteId: site.id, action: "site.unpair", status: "success" }
@@ -144,7 +144,7 @@ app.delete("/api/v1/sites/:siteId", apiAuth, async (req, res) => {
     res.status(404).json({ error: "site_not_found" });
     return;
   }
-  await prisma.site.update({ where: { id: site.id }, data: { disconnectedAt: new Date(), tokenHash: sha256(randomToken(48)) } });
+  await prisma.site.update({ where: { id: site.id }, data: { disconnectedAt: new Date(), tokenHash: sha256(randomToken(48)), tokenCiphertext: "" } });
   await prisma.auditLog.create({ data: { userId: ownerId, siteId: site.id, action: "site.disconnect", status: "success" } });
   res.json({ disconnected: true });
 });
