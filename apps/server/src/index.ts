@@ -139,7 +139,12 @@ app.post("/api/v1/sites/unpair", async (req, res) => {
 
 app.delete("/api/v1/sites/:siteId", apiAuth, async (req, res) => {
   const ownerId = res.locals.authInfo.clientId as string;
-  const site = await prisma.site.findFirst({ where: { id: req.params.siteId, ownerId, disconnectedAt: null } });
+  const siteId = Array.isArray(req.params.siteId) ? req.params.siteId[0] : req.params.siteId;
+  if (!siteId) {
+    res.status(400).json({ error: "invalid_site_id" });
+    return;
+  }
+  const site = await prisma.site.findFirst({ where: { id: siteId, ownerId, disconnectedAt: null } });
   if (!site) {
     res.status(404).json({ error: "site_not_found" });
     return;
