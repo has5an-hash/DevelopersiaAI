@@ -138,8 +138,28 @@ final class Developersia_AI_Connector {
             wp_die(esc_html__('You are not allowed to disconnect this site.', 'developersia-ai'), 403);
         }
         check_admin_referer('developersia_ai_disconnect');
+        $settings = get_option(self::OPTION, array());
+        $settings = is_array($settings) ? $settings : array();
+        $remote_disconnected = false;
+
+        if (!empty($settings['server_url']) && !empty($settings['site_token'])) {
+            $response = wp_remote_post(untrailingslashit($settings['server_url']) . '/api/v1/sites/unpair', array(
+                'timeout' => 10,
+                'redirection' => 0,
+                'sslverify' => true,
+                'headers' => array(
+                    'Authorization' => 'Bearer ' . $settings['site_token'],
+                    'Accept' => 'application/json',
+                ),
+            ));
+            $remote_disconnected = !is_wp_error($response) && (int) wp_remote_retrieve_response_code($response) === 200;
+        }
+
         delete_option(self::OPTION);
-        $this->set_notice('Developersia AI has been disconnected from this site.', 'success');
+        $message = $remote_disconnected
+            ? 'Developersia AI has been disconnected from this site and the platform.'
+            : 'The local connector was cleared. The platform could not be notified; revoke the site from your Developersia account if it still appears connected.';
+        $this->set_notice($message, 'success');
         $this->redirect_settings();
     }
 
