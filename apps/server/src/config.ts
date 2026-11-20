@@ -11,35 +11,13 @@ const EnvSchema = z.object({
   ENCRYPTION_KEY: z.string().regex(/^[a-fA-F0-9]{64}$/, "ENCRYPTION_KEY must be 32 bytes represented as 64 hex characters"),
   SITE_HTTP_ALLOW_LOCALHOST: z.string().default("true"),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0)
-}).superRefine((config, context) => {
-  if (config.NODE_ENV !== "production") return;
-
-  const publicUrl = new URL(config.PUBLIC_BASE_URL);
-  if (publicUrl.protocol !== "https:") {
-    context.addIssue({
-      code: "custom",
-      path: ["PUBLIC_BASE_URL"],
-      message: "PUBLIC_BASE_URL must use HTTPS in production."
-    });
-  }
-  if (config.JWT_SECRET.startsWith("replace-with-") || /^([a-z0-9])\\1{31,}$/i.test(config.JWT_SECRET)) {
-    context.addIssue({
-      code: "custom",
-      path: ["JWT_SECRET"],
-      message: "JWT_SECRET must be a unique, randomly generated secret in production."
-    });
-  }
-  if (/^0{64}$/i.test(config.ENCRYPTION_KEY)) {
-    context.addIssue({
-      code: "custom",
-      path: ["ENCRYPTION_KEY"],
-      message: "ENCRYPTION_KEY must be randomly generated in production."
-    });
-  }
 });
 
 export const env = EnvSchema.parse(process.env);
 export const baseUrl = new URL(env.PUBLIC_BASE_URL);
+if (baseUrl.username || baseUrl.password || baseUrl.search || baseUrl.hash || baseUrl.pathname !== "/") {
+  throw new Error("PUBLIC_BASE_URL must be an origin only, without credentials, path, query or fragment.");
+}
 
 if (env.NODE_ENV === "production") {
   const hostname = baseUrl.hostname.toLowerCase();
@@ -51,7 +29,8 @@ if (env.NODE_ENV === "production") {
   if (baseUrl.protocol !== "https:" || isLoopback || isIP(unbracketedHostname) !== 0) {
     throw new Error("Production PUBLIC_BASE_URL must use HTTPS and a public DNS hostname, not a loopback or IP address.");
   }
-  if (/^(replace|change|your-|example|dev-|test-)/i.test(env.JWT_SECRET)) {
+  if (/^(replace|change|your-|example|dev-|test-)/i.test(env.JWT_SECRET) ||
+      new Set(env.JWT_SECRET.toLowerCase()).size === 1) {
     throw new Error("Replace the JWT_SECRET example value with a unique random production secret.");
   }
   if (env.ENCRYPTION_KEY.toLowerCase() === "0".repeat(64)) {
