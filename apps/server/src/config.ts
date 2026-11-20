@@ -9,7 +9,33 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(32),
   ENCRYPTION_KEY: z.string().regex(/^[a-fA-F0-9]{64}$/, "ENCRYPTION_KEY must be 32 bytes represented as 64 hex characters"),
-  SITE_HTTP_ALLOW_LOCALHOST: z.string().default("true")
+  SITE_HTTP_ALLOW_LOCALHOST: z.string().default("true"),
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0)
+}).superRefine((config, context) => {
+  if (config.NODE_ENV !== "production") return;
+
+  const publicUrl = new URL(config.PUBLIC_BASE_URL);
+  if (publicUrl.protocol !== "https:") {
+    context.addIssue({
+      code: "custom",
+      path: ["PUBLIC_BASE_URL"],
+      message: "PUBLIC_BASE_URL must use HTTPS in production."
+    });
+  }
+  if (config.JWT_SECRET.startsWith("replace-with-") || /^([a-z0-9])\\1{31,}$/i.test(config.JWT_SECRET)) {
+    context.addIssue({
+      code: "custom",
+      path: ["JWT_SECRET"],
+      message: "JWT_SECRET must be a unique, randomly generated secret in production."
+    });
+  }
+  if (/^0{64}$/i.test(config.ENCRYPTION_KEY)) {
+    context.addIssue({
+      code: "custom",
+      path: ["ENCRYPTION_KEY"],
+      message: "ENCRYPTION_KEY must be randomly generated in production."
+    });
+  }
 });
 
 export const env = EnvSchema.parse(process.env);
