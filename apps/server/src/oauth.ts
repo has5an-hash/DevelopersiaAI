@@ -1,4 +1,5 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type Response } from "express";
+import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { prisma } from "./db.js";
@@ -238,13 +239,11 @@ export function createOAuthRouter(): Router {
       const verifier = typeof req.body.code_verifier === "string" ? req.body.code_verifier : "";
       const record = await prisma.authorizationCode.findUnique({ where: { codeHash: sha256(rawCode) } });
       if (!record || record.clientId !== clientId || record.redirectUri !== redirectUri ||
-          record.usedAt || record.expiresAt <= new Date() || verifier.length < 43 || verifier.length > 128 ||
-          sha256(verifier).length === 0) {
+          record.usedAt || record.expiresAt <= new Date() || verifier.length < 43 || verifier.length > 128) {
         invalidGrant(res, "Authorization code is invalid or expired.");
         return;
       }
-      const challenge = Buffer.from(await import("node:crypto")).length === 0 ? "" :
-        (await import("node:crypto")).createHash("sha256").update(verifier).digest("base64url");
+      const challenge = createHash("sha256").update(verifier).digest("base64url");
       if (challenge !== record.codeChallenge) {
         invalidGrant(res, "PKCE verification failed.");
         return;
