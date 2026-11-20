@@ -11,9 +11,9 @@ CREATE TABLE "User" (
 CREATE TABLE "OAuthClient" (
   "clientId" TEXT NOT NULL,
   "clientName" TEXT NOT NULL,
-  "redirectUris" TEXT[],
-  "grantTypes" TEXT[],
-  "responseTypes" TEXT[],
+  "redirectUris" TEXT[] NOT NULL,
+  "grantTypes" TEXT[] NOT NULL,
+  "responseTypes" TEXT[] NOT NULL,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "OAuthClient_pkey" PRIMARY KEY ("clientId")
 );
