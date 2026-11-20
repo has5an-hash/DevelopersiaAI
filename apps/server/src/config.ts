@@ -33,8 +33,8 @@ if (env.NODE_ENV === "production") {
       new Set(env.JWT_SECRET.toLowerCase()).size === 1) {
     throw new Error("Replace the JWT_SECRET example value with a unique random production secret.");
   }
-  if (env.ENCRYPTION_KEY.toLowerCase() === "0".repeat(64)) {
-    throw new Error("Replace the ENCRYPTION_KEY example value with 32 random bytes encoded as 64 hex characters.");
+  if (new Set(env.ENCRYPTION_KEY.toLowerCase()).size < 10) {
+    throw new Error("ENCRYPTION_KEY must contain a high-entropy random value in production.");
   }
 }
 
