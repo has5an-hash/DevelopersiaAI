@@ -19,7 +19,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.get("/.well-known/oauth-protected-resource", (_req, res) => {
-  res.json({ resource: mcpUrl, authorization_servers: [baseUrl.origin], bearer_methods_supported: ["header"], scopes_supported: ["mcp", "sites:read", "sites:write"] });
+  res.json({ resource: mcpUrl, authorization_servers: [baseUrl.origin], bearer_methods_supported: ["header"], scopes_supported: ["mcp", "sites:read", "sites:write", "offline_access"] });
 });
 
 async function apiAuth(req: Request, res: Response, next: NextFunction) {
