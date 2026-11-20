@@ -170,6 +170,12 @@ final class Developersia_AI_Connector {
     }
 
     public function register_routes() {
+        register_rest_route('developersia/v1', '/disconnect', array(
+            'methods' => WP_REST_Server::DELETABLE,
+            'callback' => array($this, 'disconnect'),
+            'permission_callback' => array($this, 'authorize_request'),
+        ));
+
         register_rest_route('developersia/v1', '/status', array(
             'methods' => WP_REST_Server::READABLE,
             'callback' => array($this, 'status'),
@@ -234,6 +240,14 @@ final class Developersia_AI_Connector {
 
         wp_set_current_user($user_id);
         return true;
+    }
+
+    public function disconnect() {
+        if (!current_user_can('manage_options')) {
+            return new WP_Error('developersia_forbidden', 'Only a site administrator can disconnect the connector.', array('status' => 403));
+        }
+        delete_option(self::OPTION);
+        return rest_ensure_response(array('disconnected' => true));
     }
 
     public function status() {
