@@ -8,6 +8,7 @@ process.env.SITE_HTTP_ALLOW_LOCALHOST = "true";
 
 const security = await import("../apps/server/src/security.js");
 const siteUrl = await import("../apps/server/src/site-url.js");
+const httpSecurity = await import("../apps/server/src/http-security.js");
 
 describe("Developersia security primitives", () => {
   it("encrypts and decrypts site credentials", () => {
@@ -68,5 +69,24 @@ describe("WordPress site URL validation", () => {
 
   it("supports WordPress installed in a localhost subdirectory", async () => {
     await expect(siteUrl.assertSafeSiteUrl("http://localhost:8080/wordpress/")).resolves.toBe("http://localhost:8080/wordpress");
+  });
+});
+
+describe("HTTP security headers", () => {
+  it("sets anti-clickjacking, no-sniff, no-referrer and no-store headers", () => {
+    const headers = new Map<string, string>();
+    httpSecurity.applySecurityHeaders({
+      setHeader(name: string, value: string) {
+        headers.set(name, value);
+        return this;
+      }
+    });
+
+    expect(headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(headers.get("X-Frame-Options")).toBe("DENY");
+    expect(headers.get("Referrer-Policy")).toBe("no-referrer");
+    expect(headers.get("Cache-Control")).toBe("no-store");
+    expect(headers.get("Content-Security-Policy")).toContain("frame-ancestors 'none'");
+    expect(headers.get("Content-Security-Policy")).toContain("form-action 'self'");
   });
 });
