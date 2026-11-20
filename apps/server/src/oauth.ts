@@ -9,7 +9,7 @@ import { baseUrl, issuer, mcpUrl, env } from "./config.js";
 import { randomToken, safeRedirectUri, sha256 } from "./security.js";
 
 const signingKey = new TextEncoder().encode(env.JWT_SECRET);
-const availableScopes = ["mcp", "sites:read", "sites:write"] as const;
+const availableScopes = ["mcp", "sites:read", "sites:write", "offline_access"] as const;
 const defaultScope = availableScopes.join(" ");
 
 function escapeHtml(value: string): string {
@@ -41,7 +41,8 @@ function renderConsent(id: string, csrf: string, clientName: string, scope: stri
   const labels: Record<string, string> = {
     "mcp": "Connect to Developersia AI",
     "sites:read": "Read connected WordPress site information and content",
-    "sites:write": "Create drafts and edit draft content"
+    "sites:write": "Create drafts and edit draft content",
+    "offline_access": "Keep the connection active by issuing refresh tokens"
   };
   const permissions = scope.split(" ").filter(Boolean).map((item) =>
     "<li>" + escapeHtml(labels[item] ?? item) + "</li>"
