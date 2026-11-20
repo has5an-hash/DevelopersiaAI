@@ -30,6 +30,7 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:?Set ADMIN_EMAIL in .env}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
       SITE_HTTP_ALLOW_LOCALHOST: "false"
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
     ports:
       - "127.0.0.1:3000:3000"
 
