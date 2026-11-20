@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://test:test@localhost:5432/test?schema=public
+      JWT_SECRET: test-only-secret-with-more-than-32-characters
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      SITE_HTTP_ALLOW_LOCALHOST: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - run: npx prisma generate
+      - run: npm run typecheck
+      - run: npm test
+      - name: PHP syntax check
+        run: php -l plugins/developersia-ai/developersia-ai.php
