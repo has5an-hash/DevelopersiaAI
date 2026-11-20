@@ -29,6 +29,9 @@
 - Outbound requests use a timeout, a 2 MB response limit and do not follow redirects.
 - Pairing and unpairing endpoints have application-level rate limits; OAuth registration, login and token endpoints are also rate-limited.
 - MCP host validation is enabled through the official Express adapter.
+- The API applies a restrictive Content Security Policy, frame protection, MIME sniffing protection, referrer restrictions, no-store caching and production-only HSTS.
+- Express trusts only the explicitly configured `TRUST_PROXY_HOPS` number of reverse-proxy hops. Do not enable proxy trust unless every hop is controlled and the proxy overwrites client-supplied forwarding headers.
+- Production startup rejects non-HTTPS or loopback/IP public origins and placeholder or trivially weak signing/encryption secrets.
 - Infrastructure-level outbound egress filtering remains required as defense in depth against DNS rebinding, unusual network routes and compromised dependencies.
 
 ## HTTP response protections
