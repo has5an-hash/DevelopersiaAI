@@ -50,6 +50,8 @@ jobs:
       - run: npm run db:seed
       - run: npm run typecheck
       - run: npm run build
+      - name: Build Docker image
+        run: docker build -t developersia-ai:ci .
       - run: node scripts/runtime-smoke.mjs
       - run: npm test
       - name: PHP syntax check
