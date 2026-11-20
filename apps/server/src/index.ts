@@ -2,6 +2,7 @@ import { createMcpExpressApp, requireBearerAuth, getOAuthProtectedResourceMetada
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import express, { type Request, type Response, type NextFunction } from "express";
+import { rateLimit } from "express-rate-limit";
 import { env, baseUrl, mcpUrl } from "./config.js";
 import { prisma } from "./db.js";
 import { createOAuthRouter, verifyAccessToken } from "./oauth.js";
@@ -13,6 +14,19 @@ const hostname = baseUrl.hostname;
 const app = createMcpExpressApp({ host: "0.0.0.0", allowedHosts: [...new Set([hostname, "localhost", "127.0.0.1"])] });
 app.use(express.urlencoded({ extended: false, limit: "32kb" }));
 app.use(createOAuthRouter());
+
+const sitePairingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-8",
+  legacyHeaders: false
+});
+const siteUnpairLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-8",
+  legacyHeaders: false
+});
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "developersia-ai", version: "0.1.0" });
@@ -77,56 +91,104 @@ app.post("/api/v1/pairing-codes", apiAuth, apiScope("sites:write"), async (_req,
   res.status(201).json({ code, expires_in: 900, message: "Use this one-time code in the Developersia AI WordPress plugin. It will expire in 15 minutes." });
 });
 
-app.post("/api/v1/sites/pair", async (req, res) => {
+app.post("/api/v1/sites/pair", sitePairingLimiter, async (req, res) => {
   const body = req.body as Record<string, unknown>;
   const code = typeof body.code === "string" ? body.code.trim() : "";
   const siteName = typeof body.site_name === "string" ? body.site_name.slice(0, 160) : "WordPress site";
   const rawSiteUrl = typeof body.site_url === "string" ? body.site_url : "";
   const wpVersion = typeof body.wp_version === "string" ? body.wp_version.slice(0, 40) : null;
   const pluginVersion = typeof body.plugin_version === "string" ? body.plugin_version.slice(0, 40) : null;
-  if (!code || !rawSiteUrl) {
-    res.status(400).json({ error: "invalid_request", message: "A pairing code and site URL are required." });
+
+  if (!code || code.length > 80 || !rawSiteUrl || rawSiteUrl.length > 2048) {
+    res.status(400).json({ error: "invalid_request", message: "A valid pairing code and site URL are required." });
     return;
   }
+
   try {
     const siteUrl = await assertSafeSiteUrl(rawSiteUrl);
-    const pairing = await prisma.pairingCode.findUnique({ where: { codeHash: sha256(code) } });
-    if (!pairing || pairing.consumedAt || pairing.expiresAt <= new Date()) {
-      res.status(400).json({ error: "invalid_pairing_code", message: "Pairing code is invalid, expired or already used." });
-      return;
-    }
-    const existing = await prisma.site.findUnique({ where: { siteUrl } });
-    if (existing && existing.ownerId !== pairing.ownerId) {
-      res.status(409).json({ error: "site_already_connected", message: "This WordPress site is already connected to another account." });
-      return;
-    }
-    const consumed = await prisma.pairingCode.updateMany({
-      where: { id: pairing.id, consumedAt: null, expiresAt: { gt: new Date() } },
-      data: { consumedAt: new Date() }
-    });
-    if (consumed.count !== 1) {
-      res.status(409).json({ error: "pairing_code_used" });
-      return;
-    }
     const siteToken = randomToken(48);
-    const site = existing
-      ? await prisma.site.update({
-          where: { id: existing.id },
-          data: { siteName, tokenHash: sha256(siteToken), tokenCiphertext: encryptSecret(siteToken), wpVersion, pluginVersion, disconnectedAt: null, lastSeenAt: new Date() }
-        })
-      : await prisma.site.create({
-          data: { ownerId: pairing.ownerId, siteUrl, siteName, tokenHash: sha256(siteToken), tokenCiphertext: encryptSecret(siteToken), wpVersion, pluginVersion, lastSeenAt: new Date() }
-        });
-    await prisma.auditLog.create({
-      data: { userId: pairing.ownerId, siteId: site.id, action: "site.pair", status: "success", metadata: { siteUrl } }
+    const now = new Date();
+
+    const site = await prisma.$transaction(async (tx) => {
+      const pairing = await tx.pairingCode.findUnique({ where: { codeHash: sha256(code) } });
+      if (!pairing || pairing.consumedAt || pairing.expiresAt <= now) {
+        throw new Error("invalid_pairing_code");
+      }
+
+      const existing = await tx.site.findUnique({ where: { siteUrl } });
+      if (existing && existing.ownerId !== pairing.ownerId) {
+        throw new Error("site_already_connected");
+      }
+
+      const consumed = await tx.pairingCode.updateMany({
+        where: { id: pairing.id, consumedAt: null, expiresAt: { gt: now } },
+        data: { consumedAt: now }
+      });
+      if (consumed.count !== 1) {
+        throw new Error("pairing_code_used");
+      }
+
+      const connectedSite = existing
+        ? await tx.site.update({
+            where: { id: existing.id },
+            data: {
+              siteName,
+              tokenHash: sha256(siteToken),
+              tokenCiphertext: encryptSecret(siteToken),
+              wpVersion,
+              pluginVersion,
+              disconnectedAt: null,
+              lastSeenAt: now
+            }
+          })
+        : await tx.site.create({
+            data: {
+              ownerId: pairing.ownerId,
+              siteUrl,
+              siteName,
+              tokenHash: sha256(siteToken),
+              tokenCiphertext: encryptSecret(siteToken),
+              wpVersion,
+              pluginVersion,
+              lastSeenAt: now
+            }
+          });
+
+      await tx.auditLog.create({
+        data: {
+          userId: pairing.ownerId,
+          siteId: connectedSite.id,
+          action: "site.pair",
+          status: "success",
+          metadata: { siteUrl }
+        }
+      });
+      return connectedSite;
     });
-    res.status(201).json({ connected: true, site_id: site.id, site_token: siteToken, site_name: site.siteName });
+
+    res.status(201).json({
+      connected: true,
+      site_id: site.id,
+      site_token: siteToken,
+      site_name: site.siteName
+    });
   } catch (error) {
-    res.status(400).json({ error: "pairing_failed", message: error instanceof Error ? error.message : "Unable to pair site." });
+    const message = error instanceof Error ? error.message : "Unable to pair site.";
+    if (message === "site_already_connected") {
+      res.status(409).json({ error: message, message: "This WordPress site is already connected to another account." });
+      return;
+    }
+    const errorCode = message === "invalid_pairing_code" || message === "pairing_code_used" ? message : "pairing_failed";
+    const errorMessage = message === "invalid_pairing_code"
+      ? "Pairing code is invalid, expired or already used."
+      : message === "pairing_code_used"
+        ? "Pairing code has already been used."
+        : message;
+    res.status(400).json({ error: errorCode, message: errorMessage });
   }
 });
 
-app.post("/api/v1/sites/unpair", async (req, res) => {
+app.post("/api/v1/sites/unpair", siteUnpairLimiter, async (req, res) => {
   const header = req.header("authorization") ?? "";
   const siteToken = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
   if (!siteToken) {
