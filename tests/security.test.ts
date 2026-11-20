@@ -1,12 +1,10 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-beforeAll(() => {
-  process.env.NODE_ENV = "test";
-  process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/test";
-  process.env.JWT_SECRET = "test-only-secret-with-more-than-32-characters";
-  process.env.ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-  process.env.SITE_HTTP_ALLOW_LOCALHOST = "true";
-});
+process.env.NODE_ENV = "test";
+process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/test";
+process.env.JWT_SECRET = "test-only-secret-with-more-than-32-characters";
+process.env.ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+process.env.SITE_HTTP_ALLOW_LOCALHOST = "true";
 
 const security = await import("../apps/server/src/security.js");
 const siteUrl = await import("../apps/server/src/site-url.js");
