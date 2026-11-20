@@ -6,7 +6,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { OAuthError, OAuthErrorCode } from "@modelcontextprotocol/server";
 import { prisma } from "./db.js";
 import { baseUrl, issuer, mcpUrl, env } from "./config.js";
-import { randomToken, safeRedirectUri, sha256 } from "./security.js";
+import { randomToken, safeEqual, safeRedirectUri, sha256 } from "./security.js";
 
 const signingKey = new TextEncoder().encode(env.JWT_SECRET);
 const availableScopes = ["mcp", "sites:read", "sites:write", "offline_access"] as const;
@@ -90,6 +90,8 @@ export function createOAuthRouter(): Router {
   const registrationLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: "draft-8", legacyHeaders: false });
   const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false });
   const tokenLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
+  const consentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: "draft-8", legacyHeaders: false });
+  const revocationLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: "draft-8", legacyHeaders: false });
 
   router.get("/.well-known/oauth-authorization-server", (_req, res) => {
     res.json({
@@ -197,11 +199,11 @@ export function createOAuthRouter(): Router {
     }
   });
 
-  router.post("/oauth/consent", async (req, res) => {
+  router.post("/oauth/consent", consentLimiter, async (req, res) => {
     const id = typeof req.body.id === "string" ? req.body.id : "";
     const csrf = typeof req.body.csrf === "string" ? req.body.csrf : "";
     const pending = await prisma.pendingAuthorization.findUnique({ where: { id } });
-    if (!pending || pending.expiresAt <= new Date() || sha256(csrf) !== pending.csrfHash) {
+    if (!pending || pending.expiresAt <= new Date() || !safeEqual(sha256(csrf), pending.csrfHash)) {
       res.status(400).send("Authorization request expired. Please start again.");
       return;
     }
@@ -301,7 +303,7 @@ export function createOAuthRouter(): Router {
     res.status(400).json({ error: "unsupported_grant_type" });
   });
 
-  router.post("/oauth/revoke", async (req, res) => {
+  router.post("/oauth/revoke", revocationLimiter, async (req, res) => {
     const token = typeof req.body.token === "string" ? req.body.token : "";
     if (token) {
       await prisma.refreshToken.updateMany({
