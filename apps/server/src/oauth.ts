@@ -244,7 +244,8 @@ export function createOAuthRouter(): Router {
       const verifier = typeof req.body.code_verifier === "string" ? req.body.code_verifier : "";
       const record = await prisma.authorizationCode.findUnique({ where: { codeHash: sha256(rawCode) } });
       if (!record || record.clientId !== clientId || record.redirectUri !== redirectUri ||
-          record.usedAt || record.expiresAt <= new Date() || verifier.length < 43 || verifier.length > 128) {
+          record.usedAt || record.expiresAt <= new Date() || !/^[A-Za-z0-9._~-]{43,128}$/.test(verifier) ||
+          (typeof req.body.resource === "string" && req.body.resource !== record.resource)) {
         invalidGrant(res, "Authorization code is invalid or expired.");
         return;
       }
