@@ -10,7 +10,7 @@ import { randomToken, sha256, encryptSecret } from "./security.js";
 import { assertSafeSiteUrl } from "./site-url.js";
 
 const hostname = baseUrl.hostname;
-const app = createMcpExpressApp({ host: "0.0.0.0", allowedHosts: [hostname] });
+const app = createMcpExpressApp({ host: "0.0.0.0", allowedHosts: [...new Set([hostname, "localhost", "127.0.0.1"])] });
 app.use(express.urlencoded({ extended: false, limit: "32kb" }));
 app.use(createOAuthRouter());
 
