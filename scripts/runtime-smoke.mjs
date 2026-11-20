@@ -32,6 +32,16 @@ try {
   }
   assert.equal(healthy, true, "server health endpoint did not become ready");
 
+  const healthResponse = await fetch(origin + "/health");
+  assert.equal(healthResponse.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(healthResponse.headers.get("x-frame-options"), "DENY");
+  assert.equal(healthResponse.headers.get("x-powered-by"), null);
+  assert.equal(healthResponse.headers.get("cache-control"), "no-store");
+
+  const authorizationPage = await fetch(origin + "/oauth/authorize");
+  assert.equal(authorizationPage.headers.get("cache-control"), "no-store");
+  assert.match(authorizationPage.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
+
   const health = await getJson("/health");
   assert.equal(health.service, "developersia-ai");
 
