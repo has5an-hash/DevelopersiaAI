@@ -1,6 +1,7 @@
 import { Router, type Response } from "express";
 import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { rateLimit } from "express-rate-limit";
 import { SignJWT, jwtVerify } from "jose";
 import { OAuthError, OAuthErrorCode } from "@modelcontextprotocol/server";
 import { prisma } from "./db.js";
@@ -84,6 +85,9 @@ function invalidGrant(res: Response, description: string) {
 
 export function createOAuthRouter(): Router {
   const router = Router();
+  const registrationLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: "draft-8", legacyHeaders: false });
+  const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false });
+  const tokenLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
 
   router.get("/.well-known/oauth-authorization-server", (_req, res) => {
     res.json({
@@ -110,7 +114,7 @@ export function createOAuthRouter(): Router {
   });
 
   router.get("/oauth/register", (_req, res) => res.status(405).json({ error: "method_not_allowed" }));
-  router.post("/oauth/register", async (req, res) => {
+  router.post("/oauth/register", registrationLimiter, async (req, res) => {
     const input = req.body as Record<string, unknown>;
     const redirectUris = Array.isArray(input.redirect_uris) ? input.redirect_uris.filter((item): item is string => typeof item === "string") : [];
     const name = typeof input.client_name === "string" ? input.client_name.slice(0, 120) : "MCP client";
@@ -156,7 +160,7 @@ export function createOAuthRouter(): Router {
     }
   });
 
-  router.post("/oauth/authorize", async (req, res) => {
+  router.post("/oauth/authorize", loginLimiter, async (req, res) => {
     const params = readAuthorizeParams(req.body as Record<string, unknown>);
     if (!params) {
       res.status(400).send("Invalid OAuth request.");
@@ -225,7 +229,7 @@ export function createOAuthRouter(): Router {
     res.redirect(303, redirect.toString());
   });
 
-  router.post("/oauth/token", async (req, res) => {
+  router.post("/oauth/token", tokenLimiter, async (req, res) => {
     const grantType = typeof req.body.grant_type === "string" ? req.body.grant_type : "";
     const clientId = typeof req.body.client_id === "string" ? req.body.client_id : "";
     const client = await prisma.oAuthClient.findUnique({ where: { clientId } });
