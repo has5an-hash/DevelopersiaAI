@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { isIP } from "node:net";
 import { z } from "zod";
 
 const EnvSchema = z.object({
@@ -15,15 +16,19 @@ export const env = EnvSchema.parse(process.env);
 export const baseUrl = new URL(env.PUBLIC_BASE_URL);
 
 if (env.NODE_ENV === "production") {
-  const hostname = baseUrl.hostname.toLowerCase().replace(/^\\[|\\]$/g, "");
-  const isLoopback = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname.endsWith(".localhost");
-  if (baseUrl.protocol !== "https:" || isLoopback) {
-    throw new Error("Production PUBLIC_BASE_URL must use HTTPS and a public hostname.");
+  const hostname = baseUrl.hostname.toLowerCase();
+  const unbracketedHostname = hostname.startsWith("[") && hostname.endsWith("]") ? hostname.slice(1, -1) : hostname;
+  const isLoopback = unbracketedHostname === "localhost" ||
+    unbracketedHostname === "127.0.0.1" ||
+    unbracketedHostname === "::1" ||
+    unbracketedHostname.endsWith(".localhost");
+  if (baseUrl.protocol !== "https:" || isLoopback || isIP(unbracketedHostname) !== 0) {
+    throw new Error("Production PUBLIC_BASE_URL must use HTTPS and a public DNS hostname, not a loopback or IP address.");
   }
   if (/^(replace|change|your-|example|dev-|test-)/i.test(env.JWT_SECRET)) {
     throw new Error("Replace the JWT_SECRET example value with a unique random production secret.");
   }
-  if (/^([0-9a-f])\\1{63}$/i.test(env.ENCRYPTION_KEY)) {
+  if (env.ENCRYPTION_KEY.toLowerCase() === "0".repeat(64)) {
     throw new Error("Replace the ENCRYPTION_KEY example value with 32 random bytes encoded as 64 hex characters.");
   }
 }
