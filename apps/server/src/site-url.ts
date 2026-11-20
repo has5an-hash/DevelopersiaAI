@@ -27,21 +27,21 @@ export async function assertSafeSiteUrl(input: string): Promise<string> {
   const url = new URL(input);
   if (url.username || url.password || url.search || url.hash) throw new Error("Site URL must not contain credentials, query parameters or fragments.");
   if (url.pathname !== "/" && url.pathname !== "") throw new Error("Connect the WordPress site's root URL, not a subdirectory.");
-  const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  if (url.protocol !== "https:" && !(allowLocalSites && local && url.protocol === "http:")) {
+  const localHostname = url.hostname.toLowerCase() === "localhost";
+  if (url.protocol !== "https:" && !(allowLocalSites && localHostname && url.protocol === "http:")) {
     throw new Error("WordPress sites must use HTTPS. HTTP is allowed only for localhost in development.");
   }
-  if (local && !allowLocalSites) throw new Error("Local and private network sites cannot be connected.");
-  if (isIP(url.hostname)) {
-    if (!allowLocalSites || !local) throw new Error("IP-address site URLs are not accepted.");
-  } else {
-    if (url.hostname.endsWith(".localhost") || url.hostname.endsWith(".local") || url.hostname === "metadata.google.internal") {
-      throw new Error("Private and local hostnames cannot be connected.");
-    }
-    const records = await lookup(url.hostname, { all: true, verbatim: true });
-    if (!records.length || records.some((record) => isPrivateAddress(record.address))) {
-      throw new Error("The site hostname resolves to a private or reserved network address.");
-    }
+  if (localHostname) {
+    if (!allowLocalSites) throw new Error("Local and private network sites cannot be connected.");
+    return url.origin;
+  }
+  if (isIP(url.hostname)) throw new Error("IP-address site URLs are not accepted.");
+  if (url.hostname.endsWith(".localhost") || url.hostname.endsWith(".local") || url.hostname === "metadata.google.internal") {
+    throw new Error("Private and local hostnames cannot be connected.");
+  }
+  const records = await lookup(url.hostname, { all: true, verbatim: true });
+  if (!records.length || records.some((record) => isPrivateAddress(record.address))) {
+    throw new Error("The site hostname resolves to a private or reserved network address.");
   }
   return url.origin;
 }
