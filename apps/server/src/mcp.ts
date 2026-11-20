@@ -216,15 +216,20 @@ export function buildMcpServer(): McpServer {
         const ownerId = (context as RequestContext).http?.authInfo?.clientId;
         if (!ownerId) throw new Error("Authentication is required.");
         const site = await ownedSite(ownerId, site_id);
-        await wordpressRequest(site, "disconnect", { method: "DELETE" });
         await prisma.site.update({
           where: { id: site.id },
           data: { disconnectedAt: new Date(), tokenHash: sha256(randomToken(48)) }
         });
+        let wordpressCleanup = "complete";
+        try {
+          await wordpressRequest(site, "disconnect", { method: "DELETE" });
+        } catch {
+          wordpressCleanup = "manual_disconnect_required";
+        }
         await prisma.auditLog.create({
-          data: { userId: ownerId, siteId: site.id, action: "site.disconnect", status: "success" }
+          data: { userId: ownerId, siteId: site.id, action: "site.disconnect", status: "success", metadata: { wordpressCleanup } }
         });
-        return jsonResult({ disconnected: true, site_id });
+        return jsonResult({ disconnected: true, site_id, wordpress_cleanup: wordpressCleanup });
       } catch (error) { return errorResult(error); }
     }
   );
