@@ -14,6 +14,7 @@ import { securityHeaders } from "./http-security.js";
 const hostname = baseUrl.hostname;
 const app = createMcpExpressApp({ host: "0.0.0.0", allowedHosts: [...new Set([hostname, "localhost", "127.0.0.1"])] });
 app.disable("x-powered-by");
+app.set("trust proxy", env.TRUST_PROXY_HOPS);
 app.use(securityHeaders);
 app.use(express.urlencoded({ extended: false, limit: "32kb" }));
 app.use(createOAuthRouter());
