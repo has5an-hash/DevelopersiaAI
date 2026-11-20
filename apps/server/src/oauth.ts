@@ -270,7 +270,8 @@ export function createOAuthRouter(): Router {
     if (grantType === "refresh_token") {
       const rawRefresh = typeof req.body.refresh_token === "string" ? req.body.refresh_token : "";
       const record = await prisma.refreshToken.findUnique({ where: { tokenHash: sha256(rawRefresh) } });
-      if (!record || record.clientId !== clientId || record.expiresAt <= new Date()) {
+      if (!record || record.clientId !== clientId || record.expiresAt <= new Date() ||
+          (typeof req.body.resource === "string" && req.body.resource !== record.resource)) {
         invalidGrant(res, "Refresh token is invalid or expired.");
         return;
       }
