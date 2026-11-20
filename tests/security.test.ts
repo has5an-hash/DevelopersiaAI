@@ -27,6 +27,12 @@ describe("Developersia security primitives", () => {
     expect(security.randomToken(32).length).toBeGreaterThan(30);
   });
 
+  it("compares equal-length secrets without exposing a regular string comparison", () => {
+    expect(security.safeEqual("same-secret", "same-secret")).toBe(true);
+    expect(security.safeEqual("same-secret", "other-secret")).toBe(false);
+    expect(security.safeEqual("short", "shorter")).toBe(false);
+  });
+
   it("accepts HTTPS redirects and loopback development redirects only", () => {
     expect(security.safeRedirectUri("https://chatgpt.com/oauth/callback")).toBe(true);
     expect(security.safeRedirectUri("http://localhost:3000/callback")).toBe(true);
