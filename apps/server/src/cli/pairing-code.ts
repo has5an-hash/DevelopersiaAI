@@ -1,7 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../db.js";
 import { randomBytes, createHash } from "node:crypto";
 
-const prisma = new PrismaClient();
 
 function getArg(name: string): string | undefined {
   const index = process.argv.indexOf("--" + name);
