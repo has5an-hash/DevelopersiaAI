@@ -218,7 +218,7 @@ export function buildMcpServer(): McpServer {
         const site = await ownedSite(ownerId, site_id);
         await prisma.site.update({
           where: { id: site.id },
-          data: { disconnectedAt: new Date(), tokenHash: sha256(randomToken(48)) }
+          data: { disconnectedAt: new Date(), tokenHash: sha256(randomToken(48)), tokenCiphertext: "" }
         });
         let wordpressCleanup = "complete";
         try {
