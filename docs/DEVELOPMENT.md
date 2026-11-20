@@ -20,7 +20,7 @@
 3. مقادیر محرمانه را تولید و در فایل `.env` قرار دهید:
 
    ```bash
-   openssl rand -base64 48
+   openssl rand -hex 48
    openssl rand -hex 32
    ```
 
@@ -56,7 +56,7 @@
 npm run pair:code -- --email admin@example.com --ttl-minutes 15
 ```
 
-کد فقط یک بار نمایش داده می‌شود و حداکثر ۶۰ دقیقه اعتبار دارد. آن را در تنظیمات افزونه WordPress وارد کنید.
+کد فقط یک بار نمایش داده می‌شود و حداکثر ۶۰ دقیقه اعتبار دارد. آن را در تنظیمات افزونه WordPress وارد کنید. همچنین پس از اتصال MCP می‌توان از ابزار `site_pairing_code` برای تولید همین کد استفاده کرد.
 
 ## نصب افزونه وردپرس
 
@@ -79,6 +79,7 @@ zip -r developersia-ai-connector-0.1.0.zip developersia-ai
 npm run typecheck
 npm test
 npm run build
+npx prisma validate
 php -l plugins/developersia-ai/developersia-ai.php
 ```
 
