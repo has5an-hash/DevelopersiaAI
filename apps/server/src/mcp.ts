@@ -63,9 +63,6 @@ export function buildMcpServer(): McpServer {
         await prisma.auditLog.create({
           data: { userId: ownerId, action: "site.pairing_code.create", status: "success" }
         });
-        await prisma.auditLog.create({
-          data: { userId: ownerId, action: "site.pairing_code.create", status: "success" }
-        });
         return jsonResult({ code, expires_in: 900, message: "Enter this code in Settings > Developersia AI on the WordPress site. This code can only be used once." });
       } catch (error) { return errorResult(error); }
     }
@@ -193,7 +190,7 @@ export function buildMcpServer(): McpServer {
         title: z.string().min(1).max(180).optional(),
         content: z.string().min(1).max(100000).optional(),
         excerpt: z.string().max(500).optional()
-      }).refine((value) => Boolean(value.title || value.content || value.excerpt), "At least one field must be provided."),
+      }).refine((value) => value.title !== undefined || value.content !== undefined || value.excerpt !== undefined, "At least one field must be provided."),
       scopeChallenge: requireScopes("sites:write")
     },
     async ({ site_id, post_id, title, content, excerpt }, context) => {

@@ -254,7 +254,7 @@ final class Developersia_AI_Connector {
 
         $user_id = isset($settings['user_id']) ? absint($settings['user_id']) : 0;
         $user = $user_id ? get_user_by('id', $user_id) : false;
-        if (!$user || !user_can($user, 'edit_posts')) {
+        if (!$user || (!user_can($user, 'edit_posts') && !user_can($user, 'edit_pages'))) {
             return new WP_Error('developersia_user_unavailable', 'The WordPress account linked to Developersia is unavailable or lacks permission.', array('status' => 403));
         }
 
@@ -271,8 +271,8 @@ final class Developersia_AI_Connector {
     }
 
     public function status() {
-        if (!current_user_can('edit_posts')) {
-            return new WP_Error('developersia_forbidden', 'The linked WordPress user cannot edit posts.', array('status' => 403));
+        if (!current_user_can('edit_posts') && !current_user_can('edit_pages')) {
+            return new WP_Error('developersia_forbidden', 'The linked WordPress user cannot edit posts or pages.', array('status' => 403));
         }
         return rest_ensure_response(array(
             'site_name' => get_bloginfo('name'),
@@ -286,13 +286,13 @@ final class Developersia_AI_Connector {
     }
 
     public function list_posts($request) {
-        if (!current_user_can('edit_posts')) {
-            return new WP_Error('developersia_forbidden', 'The linked WordPress user cannot edit posts.', array('status' => 403));
+        if (!current_user_can('edit_posts') && !current_user_can('edit_pages')) {
+            return new WP_Error('developersia_forbidden', 'The linked WordPress user cannot edit posts or pages.', array('status' => 403));
         }
         $page = max(1, absint($request->get_param('page')));
         $per_page = min(20, max(1, absint($request->get_param('per_page'))));
         $search = sanitize_text_field((string) $request->get_param('search'));
-        $query = new WP_Query(array(
+        $query_args = array(
             'post_type' => array('post', 'page'),
             'post_status' => array('publish', 'draft', 'pending', 'private'),
             'posts_per_page' => $per_page,
@@ -300,7 +300,11 @@ final class Developersia_AI_Connector {
             's' => $search,
             'orderby' => 'modified',
             'order' => 'DESC',
-        ));
+        );
+        if (!current_user_can('edit_others_posts') || !current_user_can('edit_others_pages')) {
+            $query_args['author'] = get_current_user_id();
+        }
+        $query = new WP_Query($query_args);
         $items = array();
         foreach ($query->posts as $post) {
             if (!current_user_can('edit_post', $post->ID)) {
@@ -329,15 +333,16 @@ final class Developersia_AI_Connector {
     }
 
     public function create_draft($request) {
-        if (!current_user_can('edit_posts')) {
-            return new WP_Error('developersia_forbidden', 'You cannot create drafts.', array('status' => 403));
-        }
         $title = sanitize_text_field((string) $request->get_param('title'));
         $content = wp_kses_post((string) $request->get_param('content'));
         $excerpt = sanitize_textarea_field((string) $request->get_param('excerpt'));
         $post_type = sanitize_key((string) $request->get_param('post_type'));
         if (!$title || !$content || !in_array($post_type, array('post', 'page'), true)) {
             return new WP_Error('developersia_invalid_post', 'A title, content and valid post type are required.', array('status' => 400));
+        }
+        $required_capability = $post_type === 'page' ? 'edit_pages' : 'edit_posts';
+        if (!current_user_can($required_capability)) {
+            return new WP_Error('developersia_forbidden', 'You do not have permission to create this content type.', array('status' => 403));
         }
         $post_id = wp_insert_post(array(
             'post_title' => $title,

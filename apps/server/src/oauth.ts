@@ -282,7 +282,18 @@ export function createOAuthRouter(): Router {
         invalidGrant(res, "Refresh token reuse detected. Please authorize again.");
         return;
       }
-      await prisma.refreshToken.update({ where: { id: record.id }, data: { revokedAt: new Date() } });
+      const rotated = await prisma.refreshToken.updateMany({
+        where: { id: record.id, revokedAt: null, expiresAt: { gt: new Date() } },
+        data: { revokedAt: new Date() }
+      });
+      if (rotated.count !== 1) {
+        await prisma.refreshToken.updateMany({
+          where: { familyId: record.familyId, revokedAt: null },
+          data: { revokedAt: new Date() }
+        });
+        invalidGrant(res, "Refresh token was already used. Please authorize again.");
+        return;
+      }
       res.json(await issueTokens(record.userId, clientId, record.scope, record.resource, record.familyId));
       return;
     }
@@ -321,6 +332,17 @@ async function issueTokens(
     .setIssuedAt(now)
     .setExpirationTime(now + expiresIn)
     .sign(signingKey);
+  const response = {
+    access_token: accessToken,
+    token_type: "Bearer",
+    expires_in: expiresIn,
+    scope
+  };
+
+  if (!scope.split(/\s+/).includes("offline_access")) {
+    return response;
+  }
+
   const refreshToken = randomToken(48);
   await prisma.refreshToken.create({
     data: {
@@ -333,13 +355,7 @@ async function issueTokens(
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     }
   });
-  return {
-    access_token: accessToken,
-    token_type: "Bearer",
-    expires_in: expiresIn,
-    refresh_token: refreshToken,
-    scope
-  };
+  return { ...response, refresh_token: refreshToken };
 }
 
 export async function verifyAccessToken(token: string) {
