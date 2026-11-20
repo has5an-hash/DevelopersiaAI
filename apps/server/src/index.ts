@@ -84,6 +84,11 @@ app.post("/api/v1/sites/pair", async (req, res) => {
       res.status(400).json({ error: "invalid_pairing_code", message: "Pairing code is invalid, expired or already used." });
       return;
     }
+    const existing = await prisma.site.findUnique({ where: { siteUrl } });
+    if (existing && existing.ownerId !== pairing.ownerId) {
+      res.status(409).json({ error: "site_already_connected", message: "This WordPress site is already connected to another account." });
+      return;
+    }
     const consumed = await prisma.pairingCode.updateMany({
       where: { id: pairing.id, consumedAt: null, expiresAt: { gt: new Date() } },
       data: { consumedAt: new Date() }
@@ -93,11 +98,6 @@ app.post("/api/v1/sites/pair", async (req, res) => {
       return;
     }
     const siteToken = randomToken(48);
-    const existing = await prisma.site.findUnique({ where: { siteUrl } });
-    if (existing && existing.ownerId !== pairing.ownerId) {
-      res.status(409).json({ error: "site_already_connected", message: "This WordPress site is already connected to another account." });
-      return;
-    }
     const site = existing
       ? await prisma.site.update({
           where: { id: existing.id },
