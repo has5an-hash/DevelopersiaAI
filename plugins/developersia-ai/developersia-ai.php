@@ -3,7 +3,7 @@
  * Plugin Name: Developersia AI Connector
  * Plugin URI: https://developersia.ir/
  * Description: Securely connects this WordPress site to the Developersia AI platform.
- * Version: 0.1.1
+ * Version: 0.1.2
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Author: Developersia
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 }
 
 final class Developersia_AI_Connector {
-    const VERSION = '0.1.1';
+    const VERSION = '0.1.2';
     const OPTION = 'developersia_ai_connector';
 
     public function __construct() {
