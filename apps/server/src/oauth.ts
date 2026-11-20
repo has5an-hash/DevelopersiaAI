@@ -66,7 +66,7 @@ function readAuthorizeParams(source: Record<string, unknown>): Record<string, st
 
 async function validateClientRequest(params: Record<string, string>) {
   if (!params.client_id || params.response_type !== "code" || !params.redirect_uri ||
-      !params.code_challenge || params.code_challenge_method !== "S256") {
+      !params.code_challenge || !/^[A-Za-z0-9_-]{43}$/.test(params.code_challenge) || params.code_challenge_method !== "S256") {
     throw new Error("The OAuth request is incomplete or does not use PKCE S256.");
   }
   const client = await prisma.oAuthClient.findUnique({ where: { clientId: params.client_id } });
