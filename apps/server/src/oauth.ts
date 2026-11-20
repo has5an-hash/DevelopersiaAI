@@ -2,6 +2,7 @@ import { Router, type Response } from "express";
 import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
+import { OAuthError, OAuthErrorCode } from "@modelcontextprotocol/server";
 import { prisma } from "./db.js";
 import { baseUrl, issuer, mcpUrl, env } from "./config.js";
 import { randomToken, safeRedirectUri, sha256 } from "./security.js";
@@ -334,19 +335,23 @@ async function issueTokens(
 }
 
 export async function verifyAccessToken(token: string) {
-  const { payload } = await jwtVerify(token, signingKey, { issuer });
-  const audience = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-  if (!payload.sub || !audience.includes(mcpUrl) || typeof payload.exp !== "number") {
-    throw new Error("Invalid access token.");
+  try {
+    const { payload } = await jwtVerify(token, signingKey, { issuer });
+    const audience = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+    if (!payload.sub || !audience.includes(mcpUrl) || typeof payload.exp !== "number") {
+      throw new Error("Invalid token claims.");
+    }
+    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true } });
+    if (!user) throw new Error("Unknown Developersia account.");
+    const scopes = typeof payload.scope === "string" ? payload.scope.split(" ").filter(Boolean) : [];
+    return {
+      token,
+      clientId: user.id,
+      scopes,
+      expiresAt: payload.exp,
+      resource: new URL(mcpUrl)
+    };
+  } catch {
+    throw new OAuthError(OAuthErrorCode.InvalidToken, "The access token is invalid or expired.");
   }
-  const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true } });
-  if (!user) throw new Error("Unknown Developersia account.");
-  const scopes = typeof payload.scope === "string" ? payload.scope.split(" ").filter(Boolean) : [];
-  return {
-    token,
-    clientId: user.id,
-    scopes,
-    expiresAt: payload.exp,
-    resource: new URL(mcpUrl)
-  };
 }
