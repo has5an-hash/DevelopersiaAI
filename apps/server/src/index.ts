@@ -38,7 +38,18 @@ async function apiAuth(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-app.get("/api/v1/me", apiAuth, async (_req, res) => {
+function apiScope(scope: string) {
+  return (_req: Request, res: Response, next: NextFunction) => {
+    const scopes = res.locals.authInfo?.scopes as string[] | undefined;
+    if (!scopes?.includes(scope)) {
+      res.status(403).json({ error: "insufficient_scope", required_scope: scope });
+      return;
+    }
+    next();
+  };
+}
+
+app.get("/api/v1/me", apiAuth, apiScope("mcp"), async (_req, res) => {
   const userId = res.locals.authInfo.clientId as string;
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -47,7 +58,7 @@ app.get("/api/v1/me", apiAuth, async (_req, res) => {
   res.json({ user });
 });
 
-app.get("/api/v1/sites", apiAuth, async (_req, res) => {
+app.get("/api/v1/sites", apiAuth, apiScope("sites:read"), async (_req, res) => {
   const userId = res.locals.authInfo.clientId as string;
   const sites = await prisma.site.findMany({
     where: { ownerId: userId, disconnectedAt: null },
@@ -57,7 +68,7 @@ app.get("/api/v1/sites", apiAuth, async (_req, res) => {
   res.json({ sites });
 });
 
-app.post("/api/v1/pairing-codes", apiAuth, async (_req, res) => {
+app.post("/api/v1/pairing-codes", apiAuth, apiScope("sites:write"), async (_req, res) => {
   const ownerId = res.locals.authInfo.clientId as string;
   const code = "DEV-" + randomToken(18).toUpperCase();
   await prisma.pairingCode.create({
@@ -137,7 +148,7 @@ app.post("/api/v1/sites/unpair", async (req, res) => {
   res.json({ disconnected: true });
 });
 
-app.delete("/api/v1/sites/:siteId", apiAuth, async (req, res) => {
+app.delete("/api/v1/sites/:siteId", apiAuth, apiScope("sites:write"), async (req, res) => {
   const ownerId = res.locals.authInfo.clientId as string;
   const siteId = Array.isArray(req.params.siteId) ? req.params.siteId[0] : req.params.siteId;
   if (!siteId) {
