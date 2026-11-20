@@ -45,7 +45,8 @@ export function buildMcpServer(): McpServer {
     "sites_list",
     {
       description: "List WordPress sites connected to the signed-in Developersia account.",
-      inputSchema: z.object({})
+      inputSchema: z.object({}),
+      scopeChallenge: requireScopes("sites:read")
     },
     async (_input, context) => {
       try {
