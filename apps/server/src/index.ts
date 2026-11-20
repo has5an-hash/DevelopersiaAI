@@ -183,12 +183,37 @@ app.post("/api/v1/sites/pair", sitePairingLimiter, async (req, res) => {
       return;
     }
     const errorCode = message === "invalid_pairing_code" || message === "pairing_code_used" ? message : "pairing_failed";
-    const errorMessage = message === "invalid_pairing_code"
-      ? "Pairing code is invalid, expired or already used."
-      : message === "pairing_code_used"
-        ? "Pairing code has already been used."
-        : message;
-    res.status(400).json({ error: errorCode, message: errorMessage });
+    if (message === "invalid_pairing_code" || message === "pairing_code_used") {
+      const errorMessage = message === "invalid_pairing_code"
+        ? "Pairing code is invalid, expired or already used."
+        : "Pairing code has already been used.";
+      res.status(400).json({ error: errorCode, message: errorMessage });
+      return;
+    }
+
+    const invalidSiteUrl = [
+      "Site URL must not contain credentials, query parameters or fragments.",
+      "WordPress sites must use HTTPS. HTTP is allowed only for localhost in development.",
+      "Local and private network sites cannot be connected.",
+      "Private and local hostnames cannot be connected.",
+      "IP-address site URLs are not accepted.",
+      "The site hostname resolves to a private or reserved network address.",
+      "The site hostname could not be resolved safely.",
+      "Encoded separators are not accepted in WordPress site paths."
+    ].includes(message);
+    if (invalidSiteUrl) {
+      res.status(400).json({
+        error: "invalid_site_url",
+        message: "Use an HTTPS WordPress URL that resolves only to a public network address."
+      });
+      return;
+    }
+
+    console.error("WordPress site pairing failed:", error);
+    res.status(500).json({
+      error: "pairing_failed",
+      message: "The site could not be connected right now. Please verify the URL and try again."
+    });
   }
 });
 
