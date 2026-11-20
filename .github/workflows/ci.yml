@@ -61,7 +61,9 @@ jobs:
       - name: PHP syntax check
         run: php -l plugins/developersia-ai/developersia-ai.php
       - name: Package WordPress plugin
-        run: zip -r developersia-ai-connector.zip plugins/developersia-ai
+        run: |
+          cd plugins
+          zip -r ../developersia-ai-connector.zip developersia-ai
       - uses: actions/upload-artifact@v4
         with:
           name: developersia-ai-wordpress-plugin
