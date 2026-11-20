@@ -16,7 +16,7 @@ export type WordPressPostSummary = {
 export async function wordpressRequest<T>(
   site: Site,
   endpoint: string,
-  options: { method?: "GET" | "POST"; body?: Record<string, unknown> } = {}
+  options: { method?: "GET" | "POST" | "DELETE"; body?: Record<string, unknown> } = {}
 ): Promise<T> {
   const origin = await assertSafeSiteUrl(site.siteUrl);
   const path = endpoint.replace(/^\/+/, "");
