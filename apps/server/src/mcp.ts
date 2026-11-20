@@ -2,6 +2,7 @@ import { McpServer, requireScopes } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
 import { prisma } from "./db.js";
 import { wordpressRequest } from "./wordpress.js";
+import { randomToken, sha256 } from "./security.js";
 
 type RequestContext = { http?: { authInfo?: { clientId?: string; scopes?: string[] } } };
 
@@ -38,6 +39,26 @@ export function buildMcpServer(): McpServer {
         select: { email: true, displayName: true, role: true, createdAt: true }
       });
       return user ? jsonResult({ account: user, scopes: auth.scopes ?? [] }) : errorResult(new Error("Account not found."));
+    }
+  );
+
+  server.registerTool(
+    "site_pairing_code",
+    {
+      description: "Generate a one-time code to connect a WordPress site to this Developersia account. The code expires after 15 minutes.",
+      inputSchema: z.object({}),
+      scopeChallenge: requireScopes("sites:write")
+    },
+    async (_input, context) => {
+      try {
+        const ownerId = (context as RequestContext).http?.authInfo?.clientId;
+        if (!ownerId) throw new Error("Authentication is required.");
+        const code = "DEV-" + randomToken(18).toUpperCase();
+        await prisma.pairingCode.create({
+          data: { codeHash: sha256(code), ownerId, expiresAt: new Date(Date.now() + 15 * 60 * 1000) }
+        });
+        return jsonResult({ code, expires_in: 900, message: "Enter this code in Settings > Developersia AI on the WordPress site. This code can only be used once." });
+      } catch (error) { return errorResult(error); }
     }
   );
 
@@ -179,6 +200,31 @@ export function buildMcpServer(): McpServer {
           data: { userId: ownerId, siteId: site.id, action: "post.update_draft", status: "success", metadata: { postId: post_id } }
         });
         return jsonResult({ message: "Draft updated.", post: updated });
+      } catch (error) { return errorResult(error); }
+    }
+  );
+
+  server.registerTool(
+    "site_disconnect",
+    {
+      description: "Disconnect a WordPress site from this Developersia account and revoke its remote access token.",
+      inputSchema: z.object({ site_id: z.string().min(1) }),
+      scopeChallenge: requireScopes("sites:write")
+    },
+    async ({ site_id }, context) => {
+      try {
+        const ownerId = (context as RequestContext).http?.authInfo?.clientId;
+        if (!ownerId) throw new Error("Authentication is required.");
+        const site = await ownedSite(ownerId, site_id);
+        await wordpressRequest(site, "disconnect", { method: "DELETE" });
+        await prisma.site.update({
+          where: { id: site.id },
+          data: { disconnectedAt: new Date(), tokenHash: sha256(randomToken(48)) }
+        });
+        await prisma.auditLog.create({
+          data: { userId: ownerId, siteId: site.id, action: "site.disconnect", status: "success" }
+        });
+        return jsonResult({ disconnected: true, site_id });
       } catch (error) { return errorResult(error); }
     }
   );
