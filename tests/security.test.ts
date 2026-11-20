@@ -45,7 +45,7 @@ describe("WordPress site URL validation", () => {
     await expect(siteUrl.assertSafeSiteUrl("https://127.0.0.1/")).rejects.toThrow();
   });
 
-  it("rejects non-root WordPress paths", async () => {
-    await expect(siteUrl.assertSafeSiteUrl("https://example.com/wordpress/")).rejects.toThrow();
+  it("supports WordPress installed in a localhost subdirectory", async () => {
+    await expect(siteUrl.assertSafeSiteUrl("http://localhost:8080/wordpress/")).resolves.toBe("http://localhost:8080/wordpress");
   });
 });
