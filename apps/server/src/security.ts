@@ -38,7 +38,7 @@ export function decryptSecret(value: string): string {
 export function safeRedirectUri(value: string): boolean {
   try {
     const uri = new URL(value);
-    if (uri.hash) return false;
+    if (uri.hash || uri.username || uri.password) return false;
     if (uri.protocol === "https:") return true;
     return uri.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(uri.hostname);
   } catch {
