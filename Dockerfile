@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./
-RUN npm install
+RUN DATABASE_URL="postgresql://build:build@localhost:5432/build?schema=public" npm install
 RUN DATABASE_URL="postgresql://build:build@localhost:5432/build?schema=public" npx prisma generate
 
 COPY tsconfig.json ./
