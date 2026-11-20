@@ -8,13 +8,13 @@ async function main() {
   const password = process.env.ADMIN_PASSWORD;
   const isProduction = process.env.NODE_ENV === "production";
   const minimumLength = isProduction ? 20 : 14;
-  const validEmail = Boolean(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
   const placeholderEmail = Boolean(email && (
     email === "admin@example.com" ||
     /@(example\.com|example\.test|your-domain\.example)$/i.test(email) ||
     email.includes("your-domain")
   ));
-  if (!validEmail || !password || password.length < minimumLength ||
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+      !password || password.length < minimumLength ||
       (isProduction && (placeholderEmail || isWeakProductionSecret(password)))) {
     throw new Error("Set a real ADMIN_EMAIL and a unique ADMIN_PASSWORD of at least " + minimumLength + " characters before seeding.");
   }
