@@ -13,7 +13,14 @@
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "sourceMap": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["apps/**/*.ts", "prisma/**/*.ts", "tests/**/*.ts"]
+  "include": [
+    "apps/**/*.ts",
+    "prisma/**/*.ts",
+    "tests/**/*.ts",
+    "prisma.config.ts"
+  ]
 }
