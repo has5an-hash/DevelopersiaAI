@@ -71,7 +71,7 @@ npm run pair:code -- --email admin@example.com --ttl-minutes 15
 
 ```bash
 cd plugins
-zip -r developersia-ai-connector-0.1.0.zip developersia-ai
+zip -r developersia-ai-connector-0.1.2.zip developersia-ai
 ```
 
 در پیشخوان وردپرس به افزونه‌ها ← افزودن افزونه ← بارگذاری افزونه بروید و فایل ZIP را نصب و فعال کنید. سپس از تنظیمات ← Developersia AI، آدرس API و کد اتصال را وارد کنید.
