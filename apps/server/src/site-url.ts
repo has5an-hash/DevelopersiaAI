@@ -5,11 +5,7 @@ import { allowLocalSites } from "./config.js";
 
 function isPrivateAddress(address: string): boolean {
   try {
-    let parsed = ipaddr.parse(address);
-    if (parsed.kind() === "ipv6" && parsed.isIPv4MappedAddress()) {
-      parsed = parsed.toIPv4Address();
-    }
-    return parsed.range() !== "unicast";
+    return ipaddr.process(address).range() !== "unicast";
   } catch {
     return true;
   }
