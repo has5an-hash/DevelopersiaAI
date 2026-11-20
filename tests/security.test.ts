@@ -41,6 +41,26 @@ describe("WordPress site URL validation", () => {
     await expect(siteUrl.assertSafeSiteUrl("http://localhost:8080/")).resolves.toBe("http://localhost:8080");
   });
 
+  it("pins the development localhost target to IPv4 loopback", async () => {
+    const target = await siteUrl.resolveSafeSiteTarget("http://localhost:8080/wordpress/");
+    expect(target.address).toBe("127.0.0.1");
+    expect(target.family).toBe(4);
+    expect(target.baseUrl).toBe("http://localhost:8080/wordpress");
+  });
+
+  it("rejects local and reserved hostnames before network requests", async () => {
+    await expect(siteUrl.resolveSafeSiteTarget("https://router.local/")).rejects.toThrow();
+    await expect(siteUrl.resolveSafeSiteTarget("https://service.internal/")).rejects.toThrow();
+    await expect(siteUrl.resolveSafeSiteTarget("https://example.test/")).rejects.toThrow();
+  });
+
+  it("rejects credentials, query strings, fragments and remote HTTP", async () => {
+    await expect(siteUrl.resolveSafeSiteTarget("https://user:pass@example.com/")).rejects.toThrow();
+    await expect(siteUrl.resolveSafeSiteTarget("https://example.com/?token=x")).rejects.toThrow();
+    await expect(siteUrl.resolveSafeSiteTarget("https://example.com/#fragment")).rejects.toThrow();
+    await expect(siteUrl.resolveSafeSiteTarget("http://example.com/")).rejects.toThrow();
+  });
+
   it("rejects private network addresses", async () => {
     await expect(siteUrl.assertSafeSiteUrl("https://192.168.1.20/")).rejects.toThrow();
     await expect(siteUrl.assertSafeSiteUrl("https://127.0.0.1/")).rejects.toThrow();

@@ -23,16 +23,18 @@
 
 - WordPress site URLs must be HTTPS in production.
 - Private, loopback, reserved and local network destinations are rejected.
-- Outbound requests use a timeout and do not follow redirects.
+- Outbound WordPress requests resolve the hostname, reject private/reserved DNS answers, then connect to the validated IP while preserving the original HTTP Host header and TLS SNI/certificate validation.
+- Outbound requests use a timeout, a 2 MB response limit and do not follow redirects.
+- Pairing and unpairing endpoints have application-level rate limits; OAuth registration, login and token endpoints are also rate-limited.
 - MCP host validation is enabled through the official Express adapter.
-- Infrastructure-level outbound egress filtering is still required to mitigate DNS rebinding and unusual network routes.
+- Infrastructure-level outbound egress filtering remains required as defense in depth against DNS rebinding, unusual network routes and compromised dependencies.
 
 ## Operational requirements before public launch
 
 1. Terminate TLS at a trusted reverse proxy and keep the application bound to loopback or a private container network.
 2. Keep PostgreSQL private and encrypted at rest.
 3. Store environment secrets in a deployment secret manager, never in the repository.
-4. Configure rate limits/WAF rules for the pairing endpoint in addition to the built-in OAuth limits.
+4. Configure rate limits/WAF rules for the pairing endpoint in addition to the built-in application limits, especially when running behind a reverse proxy.
 5. Configure automated backups and test restoration.
 6. Add monitoring, alerting and audit-log retention.
 7. Review OAuth redirect domains and register only trusted MCP clients when using a static client allowlist.
