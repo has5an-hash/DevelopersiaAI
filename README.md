@@ -2,7 +2,7 @@
 
 **Developersia AI** is the first implementation of a model-independent AI platform for the Developersia ecosystem. It connects ChatGPT, Claude and other MCP-compatible AI clients to customer-owned WordPress sites through a secure remote MCP service and a small WordPress connector plugin.
 
-This repository is the first vertical slice of a larger product platform. It is not a WordPress-only brand or architecture: future modules can expose their own tools, scopes and adapters while reusing the same identity, OAuth, subscription and audit foundations.
+This repository is the first vertical slice of a larger product platform. It is not a WordPress-only brand or architecture: future modules can expose their own tools, scopes and adapters while reusing the same identity, OAuth, site-connection and audit foundations; billing can be added as a separate module later.
 
 ## What is implemented
 
