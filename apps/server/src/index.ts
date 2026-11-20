@@ -9,9 +9,12 @@ import { createOAuthRouter, verifyAccessToken } from "./oauth.js";
 import { buildMcpServer } from "./mcp.js";
 import { randomToken, sha256, encryptSecret } from "./security.js";
 import { assertSafeSiteUrl } from "./site-url.js";
+import { securityHeaders } from "./http-security.js";
 
 const hostname = baseUrl.hostname;
 const app = createMcpExpressApp({ host: "0.0.0.0", allowedHosts: [...new Set([hostname, "localhost", "127.0.0.1"])] });
+app.disable("x-powered-by");
+app.use(securityHeaders);
 app.use(express.urlencoded({ extended: false, limit: "32kb" }));
 app.use(createOAuthRouter());
 
