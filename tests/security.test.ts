@@ -32,6 +32,7 @@ describe("Developersia security primitives", () => {
     expect(security.safeRedirectUri("http://example.com/callback")).toBe(false);
     expect(security.safeRedirectUri("javascript:alert(1)")).toBe(false);
     expect(security.safeRedirectUri("https://example.com/callback#fragment")).toBe(false);
+    expect(security.safeRedirectUri("https://user:pass@example.com/callback")).toBe(false);
   });
 });
 
