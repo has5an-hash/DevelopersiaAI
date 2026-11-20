@@ -7,7 +7,7 @@ This repository is the first vertical slice of a larger product platform. It is 
 ## What is implemented
 
 ### Remote platform
-- Node.js 22+ and TypeScript API.
+- Node.js 22.12+ and TypeScript API.
 - MCP Streamable HTTP endpoint at `/mcp`.
 - OAuth 2.1 Authorization Code flow with PKCE S256.
 - Dynamic Client Registration for public OAuth clients.
@@ -64,7 +64,7 @@ The language model does not receive WordPress credentials. The server stores and
 
 ## Requirements
 
-- Node.js 22+
+- Node.js 22.12+
 - npm 10+
 - PostgreSQL 16+
 - WordPress 6.5+ and PHP 8.1+
