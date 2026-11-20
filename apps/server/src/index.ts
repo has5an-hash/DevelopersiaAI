@@ -115,6 +115,28 @@ app.post("/api/v1/sites/pair", async (req, res) => {
   }
 });
 
+app.post("/api/v1/sites/unpair", async (req, res) => {
+  const header = req.header("authorization") ?? "";
+  const siteToken = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!siteToken) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  const site = await prisma.site.findUnique({ where: { tokenHash: sha256(siteToken) } });
+  if (!site || site.disconnectedAt) {
+    res.status(404).json({ error: "site_not_connected" });
+    return;
+  }
+  await prisma.site.update({
+    where: { id: site.id },
+    data: { disconnectedAt: new Date(), tokenHash: sha256(randomToken(48)) }
+  });
+  await prisma.auditLog.create({
+    data: { userId: site.ownerId, siteId: site.id, action: "site.unpair", status: "success" }
+  });
+  res.json({ disconnected: true });
+});
+
 app.delete("/api/v1/sites/:siteId", apiAuth, async (req, res) => {
   const ownerId = res.locals.authInfo.clientId as string;
   const site = await prisma.site.findFirst({ where: { id: req.params.siteId, ownerId, disconnectedAt: null } });
