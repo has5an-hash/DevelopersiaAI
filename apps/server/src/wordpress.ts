@@ -21,7 +21,8 @@ export async function wordpressRequest<T>(
   const origin = await assertSafeSiteUrl(site.siteUrl);
   const path = endpoint.replace(/^\/+/, "");
   if (path.includes("..")) throw new Error("Invalid WordPress API path.");
-  const url = new URL("/wp-json/developersia/v1/" + path, origin);
+  const siteBase = origin.endsWith("/") ? origin : origin + "/";
+  const url = new URL("wp-json/developersia/v1/" + path, siteBase);
   const token = decryptSecret(site.tokenCiphertext);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
