@@ -9,11 +9,27 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://test:test@localhost:5432/test?schema=public
       JWT_SECRET: test-only-secret-with-more-than-32-characters
       ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      ADMIN_EMAIL: ci-admin@example.test
+      ADMIN_PASSWORD: ci-only-password-with-more-than-14-characters
       SITE_HTTP_ALLOW_LOCALHOST: "true"
     steps:
       - uses: actions/checkout@v4
@@ -21,8 +37,12 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - name: Dependency security report
+        run: npm audit --json > npm-audit.json || true
       - run: npx prisma generate
       - run: npx prisma validate
+      - run: npm run db:migrate
+      - run: npm run db:seed
       - run: npm run typecheck
       - run: npm test
       - name: PHP syntax check
@@ -34,3 +54,9 @@ jobs:
           name: developersia-ai-wordpress-plugin
           path: developersia-ai-connector.zip
           if-no-files-found: error
+      - name: Upload dependency audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: npm-audit.json
+          if-no-files-found: ignore
