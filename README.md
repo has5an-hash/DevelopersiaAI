@@ -27,6 +27,7 @@ This repository is the first vertical slice of a larger product platform. It is 
 - Read a post/page.
 - Create a new post/page as a draft.
 - Update content only while its status is draft or pending.
+- Run a read-only on-page content SEO audit (title, excerpt, word count, headings, image alt text and links).
 - Revoke the platform connection when disconnected.
 
 ### MCP tools
@@ -38,6 +39,7 @@ This repository is the first vertical slice of a larger product platform. It is 
 | `site_status` | `sites:read` | Read live site status |
 | `posts_list` | `sites:read` | Search/list posts and pages |
 | `post_read` | `sites:read` | Read post/page content |
+| `post_seo_audit` | `sites:read` | Run a heuristic on-page content SEO audit |
 | `post_create_draft` | `sites:write` | Create a draft (never publish) |
 | `post_update_draft` | `sites:write` | Edit draft/pending content |
 | `site_disconnect` | `sites:write` | Revoke a connected site |
