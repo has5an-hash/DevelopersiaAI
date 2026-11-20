@@ -30,7 +30,10 @@ export function buildMcpServer(): McpServer {
 
   server.registerTool(
     "account_get",
-    { description: "Show the signed-in Developersia account and the available permissions." },
+    {
+      description: "Show the signed-in Developersia account and the available permissions.",
+      inputSchema: z.object({})
+    },
     async (_input, context) => {
       const auth = (context as RequestContext).http?.authInfo;
       if (!auth?.clientId) return errorResult(new Error("Authenticated account context is missing."));
