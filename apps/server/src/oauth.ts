@@ -13,9 +13,10 @@ const availableScopes = ["mcp", "sites:read", "sites:write"] as const;
 const defaultScope = availableScopes.join(" ");
 
 function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => ({
+  const entities: Record<string, string> = {
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
-  })[character] ?? character);
+  };
+  return value.replace(/[&<>"']/g, (character) => entities[character] ?? character);
 }
 
 function page(title: string, body: string): string {
