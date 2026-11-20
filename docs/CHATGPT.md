@@ -36,7 +36,7 @@
 7. ابزارهای کشف‌شده را بررسی کنید و اتصال را نصب کنید.
 8. در گفت‌وگوی جدید، افزونه را با `@` انتخاب و درخواست آزمایشی ارسال کنید.
 
-سرور در discovery، scopeهای `mcp`، `sites:read`، `sites:write` و `offline_access` را اعلام می‌کند. `offline_access` برای صدور refresh token و تمدید نشست لازم است. کاربر باید مجوزهای درخواستی را در صفحه Developersia بررسی و تأیید کند.
+سرور در discovery، scopeهای `mcp`، `sites:read`، `sites:write` و `offline_access` را اعلام می‌کند. اگر کلاینت scope مشخصی درخواست نکند، مجوز پیش‌فرض فقط‌خواندنی `mcp sites:read` است. دسترسی نوشتن و `offline_access` باید صریحاً درخواست شوند و کاربر باید مجوزهای درخواستی را در صفحه Developersia بررسی و تأیید کند. Refresh token فقط در صورت درخواست `offline_access` صادر می‌شود.
 
 ## اتصال سایت WordPress
 

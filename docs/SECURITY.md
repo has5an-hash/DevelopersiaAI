@@ -4,7 +4,9 @@
 
 - ChatGPT and other MCP clients authenticate to the MCP resource server using OAuth 2.1 Authorization Code + PKCE (S256).
 - Dynamic client registration accepts public clients only and requires HTTPS redirect URIs, except loopback development callbacks.
-- Access tokens are short-lived JWTs with issuer, audience, subject, scope and expiry claims.
+- Access tokens are short-lived JWTs with issuer, audience, subject, scope and expiry claims; each token is checked against an existing OAuth client and the supported scope set.
+- OAuth connections default to read-only (`mcp sites:read`); write permission and offline refresh access are not granted unless explicitly requested and approved.
+- WordPress connector tokens are encrypted at rest in the WordPress options table using authenticated AES-256-GCM derived from the site's WordPress auth salt; pre-0.1.1 plaintext options are migrated on the next authenticated request.
 - Refresh tokens are random, stored only as SHA-256 hashes, rotated on use and revoked on reuse.
 - WordPress pairing codes are random, hashed in the database, one-time and time-limited.
 - WordPress site credentials are random, hashed for lookup and AES-256-GCM encrypted at rest so the control plane can call the paired plugin.
