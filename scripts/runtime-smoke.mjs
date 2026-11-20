@@ -42,6 +42,85 @@ try {
   assert.equal(authorizationPage.headers.get("cache-control"), "no-store");
   assert.match(authorizationPage.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
 
+  const loginPage = await fetch(origin + "/login", { redirect: "manual" });
+  assert.equal(loginPage.status, 200, "dashboard login page should be available");
+  assert.equal(loginPage.headers.get("cache-control"), "no-store");
+  const loginHtml = await loginPage.text();
+  const loginCsrf = loginHtml.match(/name="csrf_token" value="([^"]+)"/)?.[1];
+  assert.ok(loginCsrf, "login page should contain a CSRF form token");
+  const loginSetCookies = typeof loginPage.headers.getSetCookie === "function"
+    ? loginPage.headers.getSetCookie()
+    : [loginPage.headers.get("set-cookie") ?? ""];
+  const loginCookie = loginSetCookies.find((value) => value.startsWith("developersia_login_csrf="))?.split(";")[0];
+  assert.ok(loginCookie, "login page should set its CSRF cookie");
+
+  const anonymousDashboard = await fetch(origin + "/dashboard", { redirect: "manual" });
+  assert.equal(anonymousDashboard.status, 302, "dashboard must reject anonymous visitors");
+  assert.equal(anonymousDashboard.headers.get("location"), "/login");
+
+  const login = await fetch(origin + "/login", {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Cookie": loginCookie
+    },
+    body: new URLSearchParams({
+      email: process.env.ADMIN_EMAIL ?? "",
+      password: process.env.ADMIN_PASSWORD ?? "",
+      csrf_token: loginCsrf
+    })
+  });
+  assert.equal(login.status, 303, "valid administrator credentials should create a dashboard session");
+  const loginCookies = typeof login.headers.getSetCookie === "function"
+    ? login.headers.getSetCookie()
+    : [login.headers.get("set-cookie") ?? ""];
+  const sessionCookie = loginCookies.find((value) => value.startsWith("developersia_session="))?.split(";")[0];
+  assert.ok(sessionCookie, "successful login should set an HTTP session cookie");
+
+  const dashboardPage = await fetch(origin + "/dashboard", {
+    headers: { "Cookie": sessionCookie },
+    redirect: "manual"
+  });
+  assert.equal(dashboardPage.status, 200, "authenticated dashboard should load");
+  const dashboardHtml = await dashboardPage.text();
+  assert.match(dashboardHtml, /Connected WordPress sites/);
+  const dashboardCsrf = dashboardHtml.match(/name="csrf_token" value="([^"]+)"/)?.[1];
+  assert.ok(dashboardCsrf, "dashboard should provide a CSRF form token");
+  const dashboardCookies = typeof dashboardPage.headers.getSetCookie === "function"
+    ? dashboardPage.headers.getSetCookie()
+    : [dashboardPage.headers.get("set-cookie") ?? ""];
+  const dashboardCsrfCookie = dashboardCookies.find((value) => value.startsWith("developersia_dashboard_csrf="))?.split(";")[0];
+  assert.ok(dashboardCsrfCookie, "dashboard should set its CSRF cookie");
+
+  const pairingPage = await fetch(origin + "/dashboard/pairing-code", {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Cookie": sessionCookie + "; " + dashboardCsrfCookie
+    },
+    body: new URLSearchParams({ csrf_token: dashboardCsrf })
+  });
+  assert.equal(pairingPage.status, 200, "authenticated dashboard should generate a pairing code");
+  assert.match(await pairingPage.text(), /DEV-/);
+
+  const logout = await fetch(origin + "/dashboard/logout", {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Cookie": sessionCookie + "; " + dashboardCsrfCookie
+    },
+    body: new URLSearchParams({ csrf_token: dashboardCsrf })
+  });
+  assert.equal(logout.status, 303, "dashboard logout should revoke the session");
+  const loggedOutDashboard = await fetch(origin + "/dashboard", {
+    headers: { "Cookie": sessionCookie },
+    redirect: "manual"
+  });
+  assert.equal(loggedOutDashboard.status, 302, "revoked sessions must not access the dashboard");
+
   const health = await getJson("/health");
   assert.equal(health.service, "developersia-ai");
 

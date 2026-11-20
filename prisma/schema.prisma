@@ -20,6 +20,7 @@ model User {
   pendingAuths   PendingAuthorization[]
   refreshTokens  RefreshToken[]
   auditLogs      AuditLog[]
+  sessions       Session[]
 }
 
 model OAuthClient {
@@ -125,4 +126,19 @@ model AuditLog {
   site           Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
   @@index([userId, createdAt])
   @@index([siteId, createdAt])
+}
+
+
+model Session {
+  id          String   @id @default(cuid())
+  tokenHash   String   @unique
+  userId      String
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  lastSeenAt  DateTime?
+  userAgent   String?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }

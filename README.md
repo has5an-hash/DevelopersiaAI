@@ -17,6 +17,7 @@ This repository is the first vertical slice of a larger product platform. It is 
 - Encrypted-at-rest WordPress site credentials (AES-256-GCM).
 - Ownership-scoped site records and audit events.
 - Rate limits on OAuth registration, login and token endpoints.
+- Cookie-based customer dashboard with site listing, one-time pairing-code generation and site disconnection.
 - Docker Compose deployment scaffold and GitHub Actions CI.
 
 ### WordPress connector plugin
@@ -84,7 +85,7 @@ npm run db:seed
 npm run dev
 ```
 
-See [Development guide](docs/DEVELOPMENT.md) for details. `/health` is the service health endpoint. The MCP endpoint is `/mcp`.
+See [Development guide](docs/DEVELOPMENT.md) for details. `/health` is the service health endpoint, `/login` is the dashboard sign-in page, `/dashboard` is the authenticated control panel and `/mcp` is the MCP endpoint.
 
 ## Pair a WordPress site
 
@@ -143,7 +144,7 @@ Review [Security model](docs/SECURITY.md) before exposing the service publicly.
 
 ## Not yet included
 
-This repository does not yet include customer self-registration, a billing/subscription system, a full Developersia web dashboard, model API-key billing, a production server deployment, or ChatGPT store publication. Those require product and infrastructure decisions and should not be represented as live until separately implemented and verified.
+This repository does not yet include customer self-registration, email verification/password reset, billing/subscriptions, model API-key billing, a production server deployment, or ChatGPT store publication. The current dashboard supports provisioned accounts only. Those require product and infrastructure decisions and should not be represented as live until separately implemented and verified.
 
 ## Project status
 
