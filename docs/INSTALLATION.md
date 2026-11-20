@@ -7,8 +7,9 @@ Create a production `.env` file. Use a URL-safe hexadecimal PostgreSQL password 
 ```env
 POSTGRES_PASSWORD=generate-with-openssl-rand-hex-24
 ADMIN_EMAIL=admin@your-domain.example
-ADMIN_PASSWORD=use-a-long-unique-password-of-at-least-14-characters
+ADMIN_PASSWORD=use-a-long-unique-password-of-at-least-20-characters
 PUBLIC_BASE_URL=https://api.developersia.ir
+TRUST_PROXY_HOPS=1
 JWT_SECRET=generate-a-unique-random-secret
 ENCRYPTION_KEY=generate-with-openssl-rand-hex-32
 ```
@@ -42,7 +43,7 @@ docker compose up -d --build
 docker compose logs -f api
 ```
 
-The API listens on container port 3000 and is bound to host loopback only. Configure your reverse proxy to forward HTTPS traffic to `127.0.0.1:3000`. Do not expose PostgreSQL or port 3000 directly to the public internet.
+The API listens on container port 3000 and is bound to host loopback only. Configure your reverse proxy to forward HTTPS traffic to `127.0.0.1:3000`. Do not expose PostgreSQL or port 3000 directly to the public internet. With the single local reverse proxy in this Compose setup, set `TRUST_PROXY_HOPS=1`. For other topologies, set it to the exact number of trusted proxies between the client and API; never trust additional or untrusted hops.
 
 The first deployment applies Prisma migrations automatically. Seed the administrator once:
 

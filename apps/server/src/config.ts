@@ -13,6 +13,11 @@ const EnvSchema = z.object({
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0)
 });
 
+export function isWeakProductionSecret(value: string): boolean {
+  return /^(replace|change|your-|example|dev-|test-)/i.test(value) ||
+    new Set(value.toLowerCase()).size === 1;
+}
+
 export const env = EnvSchema.parse(process.env);
 export const baseUrl = new URL(env.PUBLIC_BASE_URL);
 if (baseUrl.username || baseUrl.password || baseUrl.search || baseUrl.hash || baseUrl.pathname !== "/") {
@@ -29,8 +34,7 @@ if (env.NODE_ENV === "production") {
   if (baseUrl.protocol !== "https:" || isLoopback || isIP(unbracketedHostname) !== 0) {
     throw new Error("Production PUBLIC_BASE_URL must use HTTPS and a public DNS hostname, not a loopback or IP address.");
   }
-  if (/^(replace|change|your-|example|dev-|test-)/i.test(env.JWT_SECRET) ||
-      new Set(env.JWT_SECRET.toLowerCase()).size === 1) {
+  if (isWeakProductionSecret(env.JWT_SECRET)) {
     throw new Error("Replace the JWT_SECRET example value with a unique random production secret.");
   }
   if (new Set(env.ENCRYPTION_KEY.toLowerCase()).size < 10) {

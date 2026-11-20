@@ -9,6 +9,7 @@ process.env.SITE_HTTP_ALLOW_LOCALHOST = "true";
 const security = await import("../apps/server/src/security.js");
 const siteUrl = await import("../apps/server/src/site-url.js");
 const httpSecurity = await import("../apps/server/src/http-security.js");
+const configSecurity = await import("../apps/server/src/config.js");
 
 describe("Developersia security primitives", () => {
   it("encrypts and decrypts site credentials", () => {
@@ -94,5 +95,13 @@ describe("HTTP security headers", () => {
     expect(headers.get("Cache-Control")).toBe("no-store");
     expect(headers.get("Content-Security-Policy")).toContain("frame-ancestors 'none'");
     expect(headers.get("Content-Security-Policy")).toContain("form-action 'self'");
+  });
+});
+
+describe("production secret validation", () => {
+  it("rejects placeholder and repeated secrets", () => {
+    expect(configSecurity.isWeakProductionSecret("replace-with-a-production-secret-value")).toBe(true);
+    expect(configSecurity.isWeakProductionSecret("a".repeat(48))).toBe(true);
+    expect(configSecurity.isWeakProductionSecret("R4ndom-Long-Secret-Value-2026!")).toBe(false);
   });
 });
