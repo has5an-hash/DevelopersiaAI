@@ -279,6 +279,12 @@ final class Developersia_AI_Connector {
             ),
         ));
 
+        register_rest_route('developersia/v1', '/seo-audit/(?P<id>\d+)', array(
+            'methods' => WP_REST_Server::READABLE,
+            'callback' => array($this, 'seo_audit'),
+            'permission_callback' => array($this, 'authorize_request'),
+        ));
+
         register_rest_route('developersia/v1', '/posts/(?P<id>\d+)', array(
             array(
                 'methods' => WP_REST_Server::READABLE,
@@ -399,6 +405,148 @@ final class Developersia_AI_Connector {
             return new WP_Error('developersia_forbidden', 'You cannot access this post.', array('status' => 403));
         }
         return rest_ensure_response($this->format_post($post, true));
+    }
+
+    /**
+     * Run a lightweight, read-only on-page SEO audit. This is a set of editorial
+     * checks, not a substitute for Search Console, crawl data or a specialist SEO suite.
+     */
+    public function seo_audit($request) {
+        $post = get_post(absint($request['id']));
+        if (!$post || !in_array($post->post_type, array('post', 'page'), true)) {
+            return new WP_Error('developersia_not_found', 'Post or page not found.', array('status' => 404));
+        }
+        if (!current_user_can('edit_post', $post->ID)) {
+            return new WP_Error('developersia_forbidden', 'You cannot audit this post.', array('status' => 403));
+        }
+
+        $title = trim(wp_strip_all_tags(get_the_title($post)));
+        $excerpt = trim(wp_strip_all_tags((string) $post->post_excerpt));
+        $content = (string) $post->post_content;
+        $plain_content = trim(wp_strip_all_tags(strip_shortcodes($content)));
+        $words = preg_split('/\s+/u', $plain_content, -1, PREG_SPLIT_NO_EMPTY);
+        $word_count = is_array($words) ? count($words) : 0;
+
+        $title_length = $this->text_length($title);
+        $description_length = $this->text_length($excerpt);
+        $h1_count = preg_match_all('/<h1(?:\s|>)/i', $content);
+        $h2_count = preg_match_all('/<h2(?:\s|>)/i', $content);
+        $h3_count = preg_match_all('/<h3(?:\s|>)/i', $content);
+        $link_count = preg_match_all('/<a\b[^>]*\bhref\s*=/i', $content);
+        $image_count = preg_match_all('/<img\b/i', $content);
+        $missing_alt = $this->count_images_without_alt($content);
+
+        $checks = array();
+        if ($title_length < 30 || $title_length > 60) {
+            $checks[] = array(
+                'id' => 'title_length',
+                'severity' => 'notice',
+                'message' => 'The title is ' . $title_length . ' characters long.',
+                'recommendation' => 'Consider a clear, descriptive title of roughly 30–60 characters. This is a guideline, not a ranking rule.'
+            );
+        }
+        if ($excerpt === '') {
+            $checks[] = array(
+                'id' => 'description_missing',
+                'severity' => 'warning',
+                'message' => 'The WordPress excerpt is empty.',
+                'recommendation' => 'Add a unique summary that can be reviewed as a candidate meta description. The excerpt is not automatically a meta description unless the active theme or SEO plugin uses it.'
+            );
+        } elseif ($description_length < 120 || $description_length > 160) {
+            $checks[] = array(
+                'id' => 'description_length',
+                'severity' => 'notice',
+                'message' => 'The excerpt contains ' . $description_length . ' characters.',
+                'recommendation' => 'Review the summary for clarity and useful coverage. Around 120–160 characters is a practical editorial target, not a guaranteed Google display length.'
+            );
+        }
+        if ($word_count < 300) {
+            $checks[] = array(
+                'id' => 'content_length',
+                'severity' => 'notice',
+                'message' => 'The main content contains approximately ' . $word_count . ' words.',
+                'recommendation' => 'Check whether the page fully answers its search intent. Do not add filler just to reach a word-count target.'
+            );
+        }
+        if ($word_count >= 250 && (int) $h2_count === 0) {
+            $checks[] = array(
+                'id' => 'subheadings_missing',
+                'severity' => 'notice',
+                'message' => 'No H2 subheadings were found in the post content.',
+                'recommendation' => 'Use descriptive subheadings where they improve scanning and structure.'
+            );
+        }
+        if ($missing_alt > 0) {
+            $checks[] = array(
+                'id' => 'images_missing_alt',
+                'severity' => 'warning',
+                'message' => $missing_alt . ' of ' . (int) $image_count . ' images have an empty or missing alt attribute.',
+                'recommendation' => 'Add concise, accurate alternative text to informative images. Use empty alt text for purely decorative images.'
+            );
+        }
+        if ((int) $link_count === 0 && $word_count >= 250) {
+            $checks[] = array(
+                'id' => 'links_missing',
+                'severity' => 'notice',
+                'message' => 'No links were found in the post content.',
+                'recommendation' => 'Add relevant internal or authoritative external links when they help readers.'
+            );
+        }
+
+        return rest_ensure_response(array(
+            'post_id' => (int) $post->ID,
+            'title' => $title,
+            'url' => get_permalink($post),
+            'status' => $post->post_status,
+            'scope_note' => 'Read-only heuristic review of WordPress content. It does not inspect Search Console, rankings, robots directives, canonical tags, schema output or rendered theme metadata.',
+            'metrics' => array(
+                'title_characters' => $title_length,
+                'excerpt_characters' => $description_length,
+                'content_words' => $word_count,
+                'content_h1_count' => (int) $h1_count,
+                'content_h2_count' => (int) $h2_count,
+                'content_h3_count' => (int) $h3_count,
+                'links' => (int) $link_count,
+                'images' => (int) $image_count,
+                'images_missing_alt' => (int) $missing_alt,
+            ),
+            'checks' => $checks,
+            'checks_count' => count($checks),
+        ));
+    }
+
+    private function text_length($value) {
+        $matched = preg_match_all('/./us', (string) $value, $characters);
+        return $matched === false ? strlen((string) $value) : count($characters[0]);
+    }
+
+    private function count_images_without_alt($content) {
+        if (class_exists('DOMDocument')) {
+            $document = new DOMDocument();
+            $previous = libxml_use_internal_errors(true);
+            $document->loadHTML('<?xml encoding="utf-8" ?><div>' . $content . '</div>');
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+
+            $missing = 0;
+            foreach ($document->getElementsByTagName('img') as $image) {
+                if (trim((string) $image->getAttribute('alt')) === '') {
+                    $missing++;
+                }
+            }
+            return $missing;
+        }
+
+        preg_match_all('/<img\b[^>]*>/i', $content, $images);
+        $missing = 0;
+        foreach ($images[0] as $image) {
+            if (!preg_match('/\balt\s*=\s*"([^"]*)"/i', $image, $match) || trim($match[1]) === '') {
+                if (!preg_match("/\balt\s*=\s*'([^']*)'/i", $image, $single_match) || trim($single_match[1]) === '') {
+                    $missing++;
+                }
+            }
+        }
+        return $missing;
     }
 
     public function create_draft($request) {
