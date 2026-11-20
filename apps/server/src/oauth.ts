@@ -10,7 +10,7 @@ import { randomToken, safeRedirectUri, sha256 } from "./security.js";
 
 const signingKey = new TextEncoder().encode(env.JWT_SECRET);
 const availableScopes = ["mcp", "sites:read", "sites:write", "offline_access"] as const;
-const defaultScope = availableScopes.join(" ");
+const defaultScope = "mcp sites:read";
 
 function escapeHtml(value: string): string {
   const entities: Record<string, string> = {
@@ -365,9 +365,17 @@ export async function verifyAccessToken(token: string) {
     if (!payload.sub || !audience.includes(mcpUrl) || typeof payload.exp !== "number") {
       throw new Error("Invalid token claims.");
     }
-    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true } });
-    if (!user) throw new Error("Unknown Developersia account.");
+    const oauthClientId = typeof payload.client_id === "string" ? payload.client_id : "";
+    if (!oauthClientId) throw new Error("Missing OAuth client claim.");
+    const [user, oauthClient] = await Promise.all([
+      prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true } }),
+      prisma.oAuthClient.findUnique({ where: { clientId: oauthClientId }, select: { clientId: true } })
+    ]);
+    if (!user || !oauthClient) throw new Error("Unknown Developersia account or OAuth client.");
     const scopes = typeof payload.scope === "string" ? payload.scope.split(" ").filter(Boolean) : [];
+    if (!scopes.includes("mcp") || scopes.some((scope) => !availableScopes.includes(scope as typeof availableScopes[number]))) {
+      throw new Error("Invalid token scopes.");
+    }
     return {
       token,
       clientId: user.id,

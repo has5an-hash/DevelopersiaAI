@@ -3,7 +3,7 @@
  * Plugin Name: Developersia AI Connector
  * Plugin URI: https://developersia.ir/
  * Description: Securely connects this WordPress site to the Developersia AI platform.
- * Version: 0.1.0
+ * Version: 0.1.1
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Author: Developersia
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 }
 
 final class Developersia_AI_Connector {
-    const VERSION = '0.1.0';
+    const VERSION = '0.1.1';
     const OPTION = 'developersia_ai_connector';
 
     public function __construct() {
@@ -121,10 +121,26 @@ final class Developersia_AI_Connector {
             $this->redirect_settings();
         }
 
+        $plain_token = sanitize_text_field($payload['site_token']);
+        $encrypted_token = $this->encrypt_token($plain_token);
+        if (!$encrypted_token) {
+            wp_remote_post(untrailingslashit($server_url) . '/api/v1/sites/unpair', array(
+                'timeout' => 10,
+                'redirection' => 0,
+                'sslverify' => true,
+                'headers' => array(
+                    'Authorization' => 'Bearer ' . $plain_token,
+                    'Accept' => 'application/json',
+                ),
+            ));
+            $this->set_notice('Could not securely store the connection token. OpenSSL encryption is required.', 'error');
+            $this->redirect_settings();
+        }
+
         update_option(self::OPTION, array(
             'server_url' => untrailingslashit($server_url),
-            'site_token' => sanitize_text_field($payload['site_token']),
-            'token_hash' => hash('sha256', sanitize_text_field($payload['site_token'])),
+            'site_token_encrypted' => $encrypted_token,
+            'token_hash' => hash('sha256', $plain_token),
             'user_id' => get_current_user_id(),
             'connected_at' => time(),
         ), false);
@@ -141,14 +157,15 @@ final class Developersia_AI_Connector {
         $settings = get_option(self::OPTION, array());
         $settings = is_array($settings) ? $settings : array();
         $remote_disconnected = false;
+        $site_token = $this->get_stored_token($settings);
 
-        if (!empty($settings['server_url']) && !empty($settings['site_token'])) {
+        if (!empty($settings['server_url']) && $site_token !== '') {
             $response = wp_remote_post(untrailingslashit($settings['server_url']) . '/api/v1/sites/unpair', array(
                 'timeout' => 10,
                 'redirection' => 0,
                 'sslverify' => true,
                 'headers' => array(
-                    'Authorization' => 'Bearer ' . $settings['site_token'],
+                    'Authorization' => 'Bearer ' . $site_token,
                     'Accept' => 'application/json',
                 ),
             ));
@@ -161,6 +178,48 @@ final class Developersia_AI_Connector {
             : 'The local connector was cleared. The platform could not be notified; revoke the site from your Developersia account if it still appears connected.';
         $this->set_notice($message, 'success');
         $this->redirect_settings();
+    }
+
+    private function encrypt_token($token) {
+        if (!function_exists('openssl_encrypt') || !function_exists('random_bytes')) {
+            return '';
+        }
+
+        try {
+            $iv = random_bytes(12);
+            $tag = '';
+            $key = hash('sha256', wp_salt('auth') . '|developersia-ai-connector', true);
+            $ciphertext = openssl_encrypt($token, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, '', 16);
+            if ($ciphertext === false || strlen($tag) !== 16) {
+                return '';
+            }
+            return 'v1.' . base64_encode($iv) . '.' . base64_encode($tag) . '.' . base64_encode($ciphertext);
+        } catch (Throwable $error) {
+            return '';
+        }
+    }
+
+    private function get_stored_token($settings) {
+        if (!empty($settings['site_token_encrypted']) && function_exists('openssl_decrypt')) {
+            $parts = explode('.', (string) $settings['site_token_encrypted'], 4);
+            if (count($parts) !== 4 || $parts[0] !== 'v1') {
+                return '';
+            }
+
+            $iv = base64_decode($parts[1], true);
+            $tag = base64_decode($parts[2], true);
+            $ciphertext = base64_decode($parts[3], true);
+            if (!is_string($iv) || strlen($iv) !== 12 || !is_string($tag) || strlen($tag) !== 16 || !is_string($ciphertext)) {
+                return '';
+            }
+
+            $key = hash('sha256', wp_salt('auth') . '|developersia-ai-connector', true);
+            $plaintext = openssl_decrypt($ciphertext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, '');
+            return is_string($plaintext) ? $plaintext : '';
+        }
+
+        // Read the pre-0.1.1 format so existing installations can migrate safely.
+        return !empty($settings['site_token']) ? (string) $settings['site_token'] : '';
     }
 
     private function set_notice($message, $type) {
@@ -250,6 +309,16 @@ final class Developersia_AI_Connector {
         $provided_hash = hash('sha256', trim($matches[1]));
         if (!hash_equals($stored_hash, $provided_hash)) {
             return new WP_Error('developersia_unauthorized', 'The Developersia token is invalid.', array('status' => 401));
+        }
+
+        if (!empty($settings['site_token']) && empty($settings['site_token_encrypted'])) {
+            $legacy_token = sanitize_text_field($settings['site_token']);
+            $encrypted_legacy_token = $this->encrypt_token($legacy_token);
+            if ($encrypted_legacy_token) {
+                $settings['site_token_encrypted'] = $encrypted_legacy_token;
+                unset($settings['site_token']);
+                update_option(self::OPTION, $settings, false);
+            }
         }
 
         $user_id = isset($settings['user_id']) ? absint($settings['user_id']) : 0;
