@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id             String                 @id @default(cuid())
+  email          String                 @unique
+  passwordHash   String
+  displayName    String?
+  role           String                 @default("customer")
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  sites          Site[]
+  pairingCodes   PairingCode[]
+  authCodes      AuthorizationCode[]
+  pendingAuths   PendingAuthorization[]
+  refreshTokens  RefreshToken[]
+  auditLogs      AuditLog[]
+  sessions       Session[]
+}
+
+model OAuthClient {
+  clientId       String              @id
+  clientName     String
+  redirectUris   String[]
+  grantTypes     String[]
+  responseTypes  String[]
+  createdAt      DateTime            @default(now())
+  authCodes      AuthorizationCode[]
+  refreshTokens  RefreshToken[]
+  pendingAuths   PendingAuthorization[]
+}
+
+model AuthorizationCode {
+  id             String      @id @default(cuid())
+  codeHash       String      @unique
+  clientId       String
+  userId         String
+  redirectUri    String
+  codeChallenge  String
+  scope          String
+  resource       String
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime    @default(now())
+  client         OAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([expiresAt])
+}
+
+model PendingAuthorization {
+  id             String      @id @default(cuid())
+  userId         String
+  clientId       String
+  redirectUri    String
+  codeChallenge  String
+  state          String?
+  scope          String
+  resource       String
+  csrfHash       String
+  expiresAt      DateTime
+  createdAt      DateTime    @default(now())
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client         OAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  @@index([expiresAt])
+}
+
+model RefreshToken {
+  id             String      @id @default(cuid())
+  tokenHash      String      @unique
+  familyId       String
+  userId         String
+  clientId       String
+  scope          String
+  resource       String
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime    @default(now())
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client         OAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  @@index([familyId])
+  @@index([expiresAt])
+}
+
+model Site {
+  id             String      @id @default(cuid())
+  ownerId        String
+  siteUrl        String      @unique
+  siteName       String
+  tokenHash      String      @unique
+  tokenCiphertext String
+  wpVersion      String?
+  pluginVersion  String?
+  connectedAt    DateTime    @default(now())
+  lastSeenAt     DateTime?
+  disconnectedAt DateTime?
+  owner          User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  auditLogs      AuditLog[]
+  @@index([ownerId])
+}
+
+model PairingCode {
+  id             String      @id @default(cuid())
+  codeHash       String      @unique
+  ownerId        String
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  createdAt      DateTime    @default(now())
+  owner          User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  userId         String?
+  siteId         String?
+  action         String
+  status         String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  site           Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  @@index([userId, createdAt])
+  @@index([siteId, createdAt])
+}
+
+
+model Session {
+  id          String   @id @default(cuid())
+  tokenHash   String   @unique
+  userId      String
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  lastSeenAt  DateTime?
+  userAgent   String?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
