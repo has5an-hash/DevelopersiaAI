@@ -63,6 +63,9 @@ export function buildMcpServer(): McpServer {
         await prisma.auditLog.create({
           data: { userId: ownerId, action: "site.pairing_code.create", status: "success" }
         });
+        await prisma.auditLog.create({
+          data: { userId: ownerId, action: "site.pairing_code.create", status: "success" }
+        });
         return jsonResult({ code, expires_in: 900, message: "Enter this code in Settings > Developersia AI on the WordPress site. This code can only be used once." });
       } catch (error) { return errorResult(error); }
     }
