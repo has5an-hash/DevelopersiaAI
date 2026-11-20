@@ -31,6 +31,10 @@
 - MCP host validation is enabled through the official Express adapter.
 - Infrastructure-level outbound egress filtering remains required as defense in depth against DNS rebinding, unusual network routes and compromised dependencies.
 
+## HTTP response protections
+
+The API applies a restrictive Content Security Policy, denies framing, disables content-type sniffing, suppresses referrer data, disables unnecessary browser permissions and marks responses as non-cacheable. Production startup also rejects non-HTTPS or loopback public origins and the documented placeholder signing/encryption secrets.
+
 ## Operational requirements before public launch
 
 1. Terminate TLS at a trusted reverse proxy and keep the application bound to loopback or a private container network.
