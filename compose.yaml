@@ -27,6 +27,8 @@ services:
       DATABASE_URL: postgresql://developersia:${POSTGRES_PASSWORD}@db:5432/developersia?schema=public
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in .env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?Set ADMIN_EMAIL in .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
       SITE_HTTP_ALLOW_LOCALHOST: "false"
     ports:
       - "127.0.0.1:3000:3000"
