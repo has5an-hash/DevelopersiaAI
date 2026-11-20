@@ -192,6 +192,7 @@ app.post("/api/v1/sites/pair", sitePairingLimiter, async (req, res) => {
     }
 
     const invalidSiteUrl = [
+      "Invalid URL",
       "Site URL must not contain credentials, query parameters or fragments.",
       "WordPress sites must use HTTPS. HTTP is allowed only for localhost in development.",
       "Local and private network sites cannot be connected.",
