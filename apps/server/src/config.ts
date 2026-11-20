@@ -13,6 +13,21 @@ const EnvSchema = z.object({
 
 export const env = EnvSchema.parse(process.env);
 export const baseUrl = new URL(env.PUBLIC_BASE_URL);
+
+if (env.NODE_ENV === "production") {
+  const hostname = baseUrl.hostname.toLowerCase().replace(/^\\[|\\]$/g, "");
+  const isLoopback = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname.endsWith(".localhost");
+  if (baseUrl.protocol !== "https:" || isLoopback) {
+    throw new Error("Production PUBLIC_BASE_URL must use HTTPS and a public hostname.");
+  }
+  if (/^(replace|change|your-|example|dev-|test-)/i.test(env.JWT_SECRET)) {
+    throw new Error("Replace the JWT_SECRET example value with a unique random production secret.");
+  }
+  if (/^([0-9a-f])\\1{63}$/i.test(env.ENCRYPTION_KEY)) {
+    throw new Error("Replace the ENCRYPTION_KEY example value with 32 random bytes encoded as 64 hex characters.");
+  }
+}
+
 export const mcpUrl = new URL("/mcp", baseUrl).toString();
 export const issuer = baseUrl.origin;
 export const allowLocalSites = env.NODE_ENV !== "production" && env.SITE_HTTP_ALLOW_LOCALHOST === "true";
