@@ -151,6 +151,36 @@ export function buildMcpServer(): McpServer {
   );
 
   server.registerTool(
+    "post_seo_audit",
+    {
+      description: "Run a read-only on-page SEO content audit for a WordPress post or page. Checks title and excerpt lengths, content structure, word count, image alt text and links. It does not inspect rankings, rendered metadata or Search Console.",
+      inputSchema: z.object({
+        site_id: z.string().min(1),
+        post_id: z.number().int().positive()
+      }),
+      scopeChallenge: requireScopes("sites:read")
+    },
+    async ({ site_id, post_id }, context) => {
+      try {
+        const ownerId = (context as RequestContext).http?.authInfo?.clientId;
+        if (!ownerId) throw new Error("Authentication is required.");
+        const site = await ownedSite(ownerId, site_id);
+        const audit = await wordpressRequest(site, "seo-audit/" + post_id);
+        await prisma.auditLog.create({
+          data: {
+            userId: ownerId,
+            siteId: site.id,
+            action: "post.seo_audit",
+            status: "success",
+            metadata: { postId: post_id }
+          }
+        });
+        return jsonResult(audit);
+      } catch (error) { return errorResult(error); }
+    }
+  );
+
+  server.registerTool(
     "post_create_draft",
     {
       description: "Create a new WordPress post or page as a draft. It will not be published.",
